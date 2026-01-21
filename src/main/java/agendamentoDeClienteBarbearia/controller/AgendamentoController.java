@@ -90,5 +90,21 @@ public class AgendamentoController {
         // Usa o service para garantir regra de negócio (se quiser adicionar depois)
         service.cancelar(id);
         return ResponseEntity.noContent().build();
+    }@PutMapping("/{id}/confirmar")
+    public ResponseEntity<Void> confirmar(@PathVariable Long id) {
+        service.confirmar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/concluir")
+    public ResponseEntity<Void> concluir(@PathVariable Long id) {
+        service.concluir(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/barbeiro") // Rota específica para quando o barbeiro cancela
+    public ResponseEntity<Void> cancelarPeloBarbeiro(@PathVariable Long id) {
+        service.cancelarPeloBarbeiro(id);
+        return ResponseEntity.noContent().build();
     }
 }
