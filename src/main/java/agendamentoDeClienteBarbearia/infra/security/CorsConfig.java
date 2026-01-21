@@ -1,2 +1,0 @@
-package agendamentoDeClienteBarbearia.infra.security;
-
