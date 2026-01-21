@@ -65,22 +65,15 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Libera exatamente o seu link da Vercel
-        configuration.setAllowedOrigins(List.of("https://barbearia-frontend-rose.vercel.app"));
 
-        // Permite todos os métodos
+        configuration.addAllowedOriginPattern("*");
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
-
-        // IMPORTANTE: Permite todos os headers que o navegador costuma enviar
         configuration.setAllowedHeaders(List.of("*"));
-
-        // Expõe headers se necessário
         configuration.setExposedHeaders(List.of("Authorization"));
-
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Aplica essa configuração em TODAS as rotas
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
