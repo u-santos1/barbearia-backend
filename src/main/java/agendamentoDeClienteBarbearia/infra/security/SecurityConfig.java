@@ -64,7 +64,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        // EM VEZ DE: configuration.setAllowedOriginPatterns(List.of("*"));
+        // USE O LINK DA SUA VERCEL:
+        configuration.setAllowedOrigins(List.of("https://barbearia-frontend-rose.vercel.app"));
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
