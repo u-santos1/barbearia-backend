@@ -110,4 +110,30 @@ public class AgendamentoService {
 
         agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
     }
+    // 1. Confirmar (Quando o barbeiro vê e dá ok)
+    public void confirmar(Long id) {
+        var agendamento = buscarPorId(id);
+        agendamento.setStatus(StatusAgendamento.CONFIRMADO);
+        agendamentoRepository.save(agendamento);
+    }
+
+    // 2. Concluir (Quando o corte termina e o cliente paga)
+    public void concluir(Long id) {
+        var agendamento = buscarPorId(id);
+        agendamento.setStatus(StatusAgendamento.CONCLUIDO);
+        agendamentoRepository.save(agendamento);
+    }
+
+    // 3. Cancelar pelo Barbeiro (Imprevisto da barbearia)
+    public void cancelarPeloBarbeiro(Long id) {
+        var agendamento = buscarPorId(id);
+        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_BARBEIRO);
+        agendamentoRepository.save(agendamento);
+    }
+
+    // Método auxiliar para não repetir código
+    private Agendamento buscarPorId(Long id) {
+        return agendamentoRepository.findById(id)
+                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
+    }
 }
