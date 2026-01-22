@@ -10,7 +10,7 @@ Esta é a API RESTful responsável por gerenciar as regras de negócio, persist�
 ## 🔗 Links
 
 - **URL da API (Produção):** [Acessar no Railway](https://barbearia-backend-production-0dfc.up.railway.app/barbeiros)
-- **Repositório do Frontend:** [Link para o seu GitHub do Frontend aqui]
+- **Repositório do Frontend:** [https://github.com/u-santos1/barbearia-frontend]
 
 ## 🛠️ Tecnologias
 
