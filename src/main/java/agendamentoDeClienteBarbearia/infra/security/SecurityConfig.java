@@ -48,29 +48,30 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Nada de guardar sessão no servidor
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        // 1. ROTAS DE AUTENTICAÇÃO (Sempre Abertas)
-                        .requestMatchers(HttpMethod.POST, "/auth/login").permitAll() // <--- LOGIN
-                        .requestMatchers(HttpMethod.POST, "/barbeiros").permitAll()  // <--- CADASTRO DO DONO
+                        // 1. CORREÇÃO PRINCIPAL: Libera a rota de erro do Spring
+                        .requestMatchers("/error").permitAll() // <--- ADICIONE ISSO
 
-                        // 2. ROTAS PÚBLICAS (Cliente acessa sem login)
-                        .requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll() // Listar barbeiros
-                        .requestMatchers(HttpMethod.GET, "/servicos/**").permitAll()  // Listar serviços
-                        .requestMatchers(HttpMethod.POST, "/agendamentos").permitAll() // Criar agendamento
-                        .requestMatchers("/agendamentos/barbeiro/**").permitAll() // Ver horários ocupados
+                        // 2. SIMPLIFICAÇÃO: Libera tudo de auth (Login) sem restringir método
+                        .requestMatchers("/auth/**").permitAll()
 
-                        // Cliente precisa ver/cancelar (se for via link público, mantém liberado)
+                        // 3. Libera opções do navegador (CORS Preflight)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // --- ROTAS DE NEGÓCIO ---
+                        .requestMatchers(HttpMethod.POST, "/barbeiros").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/servicos/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/agendamentos").permitAll()
+                        .requestMatchers("/agendamentos/barbeiro/**").permitAll()
                         .requestMatchers("/agendamentos/cliente/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/agendamentos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/clientes/recuperar-id").permitAll()
                         .requestMatchers(HttpMethod.POST, "/clientes").permitAll()
 
-                        // 3. ROTAS PROTEGIDAS (Só Dono Logado com Token JWT acessa)
-                        // Qualquer outra rota não listada acima exige Token
                         .anyRequest().authenticated()
                 )
-                // Adiciona o filtro JWT antes do filtro padrão do Spring
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
