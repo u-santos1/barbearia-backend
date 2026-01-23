@@ -6,6 +6,7 @@ import agendamentoDeClienteBarbearia.dtosResponse.TokenJWTData;
 import agendamentoDeClienteBarbearia.infra.security.TokenService;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class AutenticacaoService implements UserDetailsService {
 
     @Autowired
+    @Lazy
     private AuthenticationManager manager; // O Service agora gerencia a autenticação
 
     @Autowired
