@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Repository
 public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
@@ -20,4 +21,5 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     AND a.status = 'CONCLUIDO'
 """)
     BigDecimal faturamentoTotal(Long idBarbeiro, LocalDateTime inicio, LocalDateTime fim);
+    Optional<Barbeiro> findByEmail(String email);
     }

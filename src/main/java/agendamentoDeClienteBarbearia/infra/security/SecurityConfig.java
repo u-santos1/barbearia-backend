@@ -25,49 +25,73 @@ import java.util.List;
 
 
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    @Autowired
+    private SecurityFilter securityFilter; // <--- Injetamos o filtro que cria a segurança via Token
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(sm -> sm.sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Nada de guardar sessão no servidor
                 .authorizeHttpRequests(req -> req
-                        // 1. Libera o Navegador
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 1. ROTAS DE AUTENTICAÇÃO (Sempre Abertas)
+                        .requestMatchers(HttpMethod.POST, "/auth/login").permitAll() // <--- LOGIN
+                        .requestMatchers(HttpMethod.POST, "/barbeiros").permitAll()  // <--- CADASTRO DO DONO
 
-                        // 2. Rotas Públicas (Todo mundo acessa)
-                        .requestMatchers("/clientes/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/servicos/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/agendamentos").permitAll()
-                        .requestMatchers("/agendamentos/barbeiro/**").permitAll()
+                        // 2. ROTAS PÚBLICAS (Cliente acessa sem login)
+                        .requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll() // Listar barbeiros
+                        .requestMatchers(HttpMethod.GET, "/servicos/**").permitAll()  // Listar serviços
+                        .requestMatchers(HttpMethod.POST, "/agendamentos").permitAll() // Criar agendamento
+                        .requestMatchers("/agendamentos/barbeiro/**").permitAll() // Ver horários ocupados
 
-                        // --- NOVO: LIBERA O CLIENTE VER E CANCELAR ---
-                        .requestMatchers("/agendamentos/cliente/**").permitAll() // <--- Ver Histórico
-                        .requestMatchers(HttpMethod.DELETE, "/agendamentos/**").permitAll() // <--- Cancelar
+                        // Cliente precisa ver/cancelar (se for via link público, mantém liberado)
+                        .requestMatchers("/agendamentos/cliente/**").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/agendamentos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/clientes/recuperar-id").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/clientes").permitAll()
 
-                        // 3. Rotas de Admin (Só com senha)
-                        .requestMatchers("/agendamentos/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/barbeiros/**").hasRole("ADMIN")
-                        .requestMatchers("/servicos/**").hasRole("ADMIN")
-
+                        // 3. ROTAS PROTEGIDAS (Só Dono Logado com Token JWT acessa)
+                        // Qualquer outra rota não listada acima exige Token
                         .anyRequest().authenticated()
                 )
-                .httpBasic(Customizer.withDefaults())
+                // Adiciona o filtro JWT antes do filtro padrão do Spring
+                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
+    // --- CONFIGURAÇÃO NECESSÁRIA PARA O LOGIN FUNCIONAR ---
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
+    // --- CRIPTOGRAFIA DE SENHA (PADRÃO DE MERCADO) ---
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // --- CONFIGURAÇÃO DE CORS (Mantive a sua, está ótima para dev) ---
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-
         configuration.addAllowedOriginPattern("*");
-
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
@@ -76,15 +100,5 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails admin = User.builder()
-                .username("admin")
-                .password("{noop}123456")
-                .roles("ADMIN")
-                .build();
-        return new InMemoryUserDetailsManager(admin);
     }
 }
