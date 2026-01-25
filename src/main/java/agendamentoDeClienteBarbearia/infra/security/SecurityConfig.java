@@ -48,27 +48,18 @@ public class SecurityConfig {
         return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> {
-                    // 1. O que é PÚBLICO (Login, Cadastro, Listar Barbeiros/Serviços, Agendar)
+                    // --- ÁREA PÚBLICA (Qualquer um acessa) ---
                     req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll(); // Cadastro de Dono
-                    req.requestMatchers(HttpMethod.GET, "/barbeiros").permitAll();  // Para a Home
-                    req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();   // Para a Home
-                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();  // Cadastro rápido no agendamento
-                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll(); // O cliente agendando
 
-                    // NOVO: Disponibilidade é pública (o front consulta antes de logar)
-                    req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll(); // Horários ocupados
+                    // ESSA É A LINHA QUE CORRIGE O ERRO 403:
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
 
-                    // 2. O que é RESTRITO (Admin/Barbeiro Logado)
-                    req.requestMatchers("/bloqueios/**").authenticated(); // Só logado bloqueia agenda
-                    req.requestMatchers("/clientes/**").authenticated();  // Só logado vê lista de clientes
-                    req.requestMatchers("/agendamentos/meus").authenticated();
-                    req.requestMatchers("/agendamentos/admin/**").authenticated(); // Financeiro
-                    req.requestMatchers(HttpMethod.PUT, "/agendamentos/**").authenticated(); // Concluir/Confirmar
-                    req.requestMatchers(HttpMethod.DELETE, "/agendamentos/**").authenticated(); // Cancelar
+                    // Outras rotas públicas essenciais para o site funcionar sem login
+                    req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();
+                    req.requestMatchers(HttpMethod.GET, "/barbeiros").permitAll(); // Para listar na Home
+                    req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll(); // Para ver horários
 
-                    // 3. Qualquer outra coisa
+                    // --- ÁREA RESTRITA (Precisa de Token) ---
                     req.anyRequest().authenticated();
                 })
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
