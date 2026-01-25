@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/bloqueios")
+@CrossOrigin(origins = "*")
 public class BloqueioController {
 
     @Autowired
