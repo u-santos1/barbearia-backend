@@ -7,20 +7,20 @@ import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.infra.security.ValidacaoException;
-import agendamentoDeClienteBarbearia.model.Barbeiro;
-import agendamentoDeClienteBarbearia.model.Cliente;
-import agendamentoDeClienteBarbearia.model.Servico;
+import agendamentoDeClienteBarbearia.model.*;
+import agendamentoDeClienteBarbearia.repository.*;
 import jakarta.transaction.Transactional;
-import agendamentoDeClienteBarbearia.repository.ServicoRepository;
-import agendamentoDeClienteBarbearia.repository.AgendamentoRepository;
-import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
-import agendamentoDeClienteBarbearia.repository.ClienteRepository;
-import agendamentoDeClienteBarbearia.model.Agendamento;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
+import static agendamentoDeClienteBarbearia.StatusAgendamento.CONCLUIDO;
 
 
 @Service
@@ -30,8 +30,10 @@ public class AgendamentoService {
     private final BarbeiroRepository barbeiroRepository;
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
+    private final BloqueioRepository bloqueioRepository;
 
     public AgendamentoService(
+            BloqueioRepository bloqueioRepository,
             AgendamentoRepository agendamentoRepository,
             BarbeiroRepository barbeiroRepository,
             ClienteRepository clienteRepository,
@@ -40,6 +42,7 @@ public class AgendamentoService {
         this.barbeiroRepository = barbeiroRepository;
         this.clienteRepository = clienteRepository;
         this.servicoRepository = servicoRepository;
+        this.bloqueioRepository = bloqueioRepository;
     }
 
     @Transactional
@@ -104,36 +107,96 @@ public class AgendamentoService {
         return DetalhamentoAgendamentoDTO.toDTO(salvar);
     }
 
+    @Transactional
     public void cancelar(Long agendamentoId) {
-        var agendamento = agendamentoRepository.findById(agendamentoId)
-                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
-
+        var agendamento = buscarPorId(agendamentoId);
         agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
+        agendamentoRepository.save(agendamento);
     }
-    // 1. Confirmar (Quando o barbeiro vê e dá ok)
+
+    @Transactional
     public void confirmar(Long id) {
         var agendamento = buscarPorId(id);
         agendamento.setStatus(StatusAgendamento.CONFIRMADO);
         agendamentoRepository.save(agendamento);
     }
 
-    // 2. Concluir (Quando o corte termina e o cliente paga)
+    // --- CORREÇÃO AQUI: Apenas UM método concluir e usando o Enum correto ---
+    @Transactional
     public void concluir(Long id) {
         var agendamento = buscarPorId(id);
         agendamento.setStatus(StatusAgendamento.CONCLUIDO);
         agendamentoRepository.save(agendamento);
     }
 
-    // 3. Cancelar pelo Barbeiro (Imprevisto da barbearia)
+    @Transactional
     public void cancelarPeloBarbeiro(Long id) {
         var agendamento = buscarPorId(id);
         agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_BARBEIRO);
         agendamentoRepository.save(agendamento);
     }
 
-    // Método auxiliar para não repetir código
+    // Método auxiliar privado
     private Agendamento buscarPorId(Long id) {
         return agendamentoRepository.findById(id)
                 .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
+    }
+
+    // Cálculo de Disponibilidade
+    public List<String> listarHorariosDisponiveis(Long barbeiroId, Long servicoId, LocalDate data) {
+        // 1. Descobrir duração do serviço
+        var servico = servicoRepository.findById(servicoId).orElseThrow();
+        int duracaoMinutos = servico.getDuracaoEmMinutos();
+
+        // 2. Pegar agenda ocupada do dia (Agendamentos e Bloqueios)
+        LocalDateTime inicioDia = data.atStartOfDay();
+        LocalDateTime fimDia = data.atTime(LocalTime.MAX);
+
+        List<Agendamento> agendamentos = agendamentoRepository.findAgendaDoDia(barbeiroId, inicioDia, fimDia);
+        List<Bloqueio> bloqueios = bloqueioRepository.findBloqueiosDoDia(barbeiroId, inicioDia, fimDia);
+
+        // 3. Configurar horário de trabalho (Ex: 09:00 as 19:00)
+        LocalTime abertura = LocalTime.of(9, 0);
+        LocalTime fechamento = LocalTime.of(19, 0);
+
+        List<String> horariosLivres = new ArrayList<>();
+        LocalTime slotAtual = abertura;
+
+        while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fechamento)) {
+
+            boolean estaLivre = true;
+            LocalDateTime slotInicio = LocalDateTime.of(data, slotAtual);
+            LocalDateTime slotFim = slotInicio.plusMinutes(duracaoMinutos);
+
+            // Validação 1: Colisão com Agendamentos
+            for (Agendamento ag : agendamentos) {
+                LocalDateTime agInicio = ag.getDataHoraInicio();
+                // Assumindo que o agendamento salvo já tem a duração correta ou pegamos do serviço
+                LocalDateTime agFim = agInicio.plusMinutes(ag.getServico().getDuracaoEmMinutos());
+
+                if (slotInicio.isBefore(agFim) && slotFim.isAfter(agInicio)) {
+                    estaLivre = false;
+                    break;
+                }
+            }
+
+            // Validação 2: Colisão com Bloqueios
+            if (estaLivre) {
+                for (Bloqueio b : bloqueios) {
+                    if (slotInicio.isBefore(b.getFim()) && slotFim.isAfter(b.getInicio())) {
+                        estaLivre = false;
+                        break;
+                    }
+                }
+            }
+
+            if (estaLivre) {
+                horariosLivres.add(slotAtual.toString());
+            }
+
+            slotAtual = slotAtual.plusMinutes(30);
+        }
+
+        return horariosLivres;
     }
 }

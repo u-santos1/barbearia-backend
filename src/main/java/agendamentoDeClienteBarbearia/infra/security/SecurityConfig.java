@@ -45,33 +45,32 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(req -> req
-                        // 1. CORREÇÃO PRINCIPAL: Libera a rota de erro do Spring
-                        .requestMatchers("/error").permitAll() // <--- ADICIONE ISSO
+                .authorizeHttpRequests(req -> {
+                    // 1. O que é PÚBLICO (Login, Cadastro, Listar Barbeiros/Serviços, Agendar)
+                    req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll();
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll(); // Cadastro de Dono
+                    req.requestMatchers(HttpMethod.GET, "/barbeiros").permitAll();  // Para a Home
+                    req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();   // Para a Home
+                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();  // Cadastro rápido no agendamento
+                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll(); // O cliente agendando
 
-                        // 2. SIMPLIFICAÇÃO: Libera tudo de auth (Login) sem restringir método
-                        .requestMatchers("/auth/**").permitAll()
+                    // NOVO: Disponibilidade é pública (o front consulta antes de logar)
+                    req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll();
+                    req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll(); // Horários ocupados
 
-                        // 3. Libera opções do navegador (CORS Preflight)
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    // 2. O que é RESTRITO (Admin/Barbeiro Logado)
+                    req.requestMatchers("/bloqueios/**").authenticated(); // Só logado bloqueia agenda
+                    req.requestMatchers("/clientes/**").authenticated();  // Só logado vê lista de clientes
+                    req.requestMatchers("/agendamentos/meus").authenticated();
+                    req.requestMatchers("/agendamentos/admin/**").authenticated(); // Financeiro
+                    req.requestMatchers(HttpMethod.PUT, "/agendamentos/**").authenticated(); // Concluir/Confirmar
+                    req.requestMatchers(HttpMethod.DELETE, "/agendamentos/**").authenticated(); // Cancelar
 
-                        // --- ROTAS DE NEGÓCIO ---
-                        .requestMatchers(HttpMethod.POST, "/barbeiros").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/servicos/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/agendamentos").permitAll()
-                        .requestMatchers("/agendamentos/barbeiro/**").permitAll()
-                        .requestMatchers("/agendamentos/cliente/**").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/agendamentos/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/clientes/recuperar-id").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/clientes").permitAll()
-
-                        .anyRequest().authenticated()
-                )
+                    // 3. Qualquer outra coisa
+                    req.anyRequest().authenticated();
+                })
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

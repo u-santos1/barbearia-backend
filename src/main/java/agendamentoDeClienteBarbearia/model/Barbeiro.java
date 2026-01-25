@@ -29,6 +29,9 @@ public class Barbeiro implements UserDetails {
 
     private String senha;
 
+    @Column(name = "comissao_porcentagem")
+    private Double comissaoPorcentagem = 50.0;
+
     private String especialidade; // Ex: "Barba", "Corte Clássico"
 
     // Opcional: Lista de agendamentos desse barbeiro (bidirecional)

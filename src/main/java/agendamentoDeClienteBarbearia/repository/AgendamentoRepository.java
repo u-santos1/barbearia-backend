@@ -24,4 +24,8 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     List<Agendamento> findByBarbeiroIdAndDataHoraInicioBetween(Long idBarbeiro, LocalDateTime inicio, LocalDateTime fim);
     // Busca agendamentos do cliente, ordenados por data
     List<Agendamento> findByClienteIdOrderByDataHoraInicioDesc(Long clienteId);
+
+    @Query("SELECT a FROM Agendamento a WHERE a.barbeiro.id = :id AND a.dataHoraInicio BETWEEN :inicio AND :fim")
+    List<Agendamento> findAgendaDoDia(Long id, LocalDateTime inicio, LocalDateTime fim);
+    List<Agendamento> findByBarbeiroIdOrderByDataHoraInicioDesc(Long barbeiroId);
 }

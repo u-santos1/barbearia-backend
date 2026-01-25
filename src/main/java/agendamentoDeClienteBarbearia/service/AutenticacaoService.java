@@ -36,19 +36,14 @@ public class AutenticacaoService implements UserDetailsService {
 
     // --- AQUI ESTÁ A REGRA DE NEGÓCIO DO LOGIN ---
     public TokenJWTData realizarLogin(LoginDTO dados) {
-        // 1. Cria o token de dados (ainda não autenticado)
         var authenticationToken = new UsernamePasswordAuthenticationToken(dados.email(), dados.senha());
-
-        // 2. O Spring Security bate no banco e verifica o hash da senha
         var authentication = manager.authenticate(authenticationToken);
+        var tokenJWT = tokenService.gerarToken((Barbeiro) authentication.getPrincipal());
 
-        // 3. Se passou, pegamos o usuário logado
-        var usuario = (Barbeiro) authentication.getPrincipal();
+        // Pega o usuário logado
+        Barbeiro logado = (Barbeiro) authentication.getPrincipal();
 
-        // 4. Geramos o Token JWT
-        var tokenJWT = tokenService.gerarToken(usuario);
-
-        // 5. Retornamos o DTO pronto
-        return new TokenJWTData(tokenJWT, usuario.getNome(), usuario.getId());
+        // Retorna o Token + Nome + Especialidade (Perfil)
+        return new TokenJWTData(tokenJWT, logado.getNome(), logado.getEspecialidade());
     }
 }

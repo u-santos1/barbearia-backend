@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/clientes")
 public class ClienteController {
@@ -39,6 +41,11 @@ public class ClienteController {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email não encontrado.");
         }
+    }
+    @GetMapping
+    public ResponseEntity<List<Cliente>> listarClientes() {
+        // Adicione @PreAuthorize("hasAuthority('Dono')") se quiser proteger
+        return ResponseEntity.ok(repository.findAll());
     }
 }
 

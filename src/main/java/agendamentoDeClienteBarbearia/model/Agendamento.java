@@ -41,6 +41,14 @@ public class Agendamento {
 
     private BigDecimal valorCobrado;
 
+    // No arquivo: model/Agendamento.java
+
+    private Double valorTotal;
+    private Double valorBarbeiro;
+    private Double valorCasa;
+
+// Gere Getters e Setters
+
     // Enum para status: AGENDADO, CANCELADO, FINALIZADO
     @Enumerated(EnumType.STRING)
     private StatusAgendamento status;
