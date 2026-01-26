@@ -26,24 +26,38 @@ public class SecurityConfig {
     @Autowired
     private SecurityFilter securityFilter;
 
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // 1. ATIVA O CORS (CRUCIAL! Sem isso, o Bean lá embaixo é ignorado)
+                // 1. CORS LIBERADO (Para o Front não dar erro de Preflight)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> {
-                    // --- ÁREA PÚBLICA ---
-                    req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll(); // Cadastro
+
+                    // ====================================================
+                    // GRUPO 1: QUEM ALTERA O BANCO PUBLICAMENTE
+                    // (Se faltar algum aqui, dá erro 403 no site)
+                    // ====================================================
+                    req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll(); // Entrar
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();  // Criar conta do Dono
+                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();   // Salvar Cliente
+                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll(); // Salvar Agendamento
+
+                    // ====================================================
+                    // GRUPO 2: QUEM APENAS LÊ DADOS (Público)
+                    // ====================================================
                     req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/barbeiros").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll();
 
-                    // --- ÁREA RESTRITA ---
+                    // ====================================================
+                    // GRUPO 3: TUDO O RESTO É RESTRITO (Admin/Barbeiro)
+                    // (Bloqueios, Deletes, Updates, Financeiro)
+                    // ====================================================
                     req.anyRequest().authenticated();
                 })
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
