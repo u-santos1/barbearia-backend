@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.controller;
 
 
 import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoClienteDTO;
 import agendamentoDeClienteBarbearia.model.Cliente;
 import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import agendamentoDeClienteBarbearia.service.ClienteService;
@@ -26,9 +27,13 @@ public class ClienteController {
     }
 
     @PostMapping
-    public ResponseEntity<Cliente> cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
-        var cliente = service.cadastrar(dados);
-        return ResponseEntity.status(HttpStatus.CREATED).body(cliente);
+    public ResponseEntity<DetalhamentoClienteDTO> cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
+
+        // Toda a regra de "buscar por email/telefone" e "atualizar ou criar" está aqui dentro:
+        var dto = service.cadastrarOuAtualizar(dados);
+
+        // Retornamos 200 OK porque pode ter sido uma atualização (Upsert)
+        return ResponseEntity.ok(dto);
     }
 
 

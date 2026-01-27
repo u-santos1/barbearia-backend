@@ -5,11 +5,19 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "tb_clientes")
-@Data
-@NoArgsConstructor
+
+
+import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO; // Importe o DTO correto
+import jakarta.persistence.*;
+import lombok.*;
+
+@Table(name = "clientes")
+@Entity(name = "Cliente")
+@Getter
+@Setter
+@NoArgsConstructor // Obrigatório para o JPA/Hibernate
 @AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class Cliente {
 
     @Id
@@ -18,8 +26,15 @@ public class Cliente {
 
     private String nome;
 
-    @Column(unique = true)
+    @Column(unique = true) // Aceita null, mas se tiver valor, deve ser único
     private String email;
 
-    private String telefone; // Importante para notificações (WhatsApp)
+    private String telefone;
+
+    // --- ADICIONE ESTE CONSTRUTOR ---
+    public Cliente(CadastroClienteDTO dados) {
+        this.nome = dados.nome();
+        this.email = dados.email();
+        this.telefone = dados.telefone();
+    }
 }
