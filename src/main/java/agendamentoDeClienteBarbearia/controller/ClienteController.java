@@ -6,10 +6,12 @@ import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoClienteDTO;
 import agendamentoDeClienteBarbearia.model.Cliente;
 import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import agendamentoDeClienteBarbearia.service.ClienteService;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 
@@ -27,13 +29,16 @@ public class ClienteController {
     }
 
     @PostMapping
-    public ResponseEntity<DetalhamentoClienteDTO> cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
-
-        // Toda a regra de "buscar por email/telefone" e "atualizar ou criar" está aqui dentro:
+    @Transactional
+    public ResponseEntity cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
+        // Agora 'service' existe na memória
         var dto = service.cadastrarOuAtualizar(dados);
 
-        // Retornamos 200 OK porque pode ter sido uma atualização (Upsert)
-        return ResponseEntity.ok(dto);
+        // Retorna 201 Created com a URL
+        var uri = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}").buildAndExpand(dto.id()).toUri();
+
+        return ResponseEntity.created(uri).body(dto);
     }
 
 
