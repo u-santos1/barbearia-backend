@@ -1,5 +1,6 @@
 package agendamentoDeClienteBarbearia.model;
 
+import agendamentoDeClienteBarbearia.TipoPlano;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,10 +30,23 @@ public class Barbeiro implements UserDetails {
 
     private String senha;
 
+    @ManyToOne
+    @JoinColumn(name = "dono_id")
+    private Barbeiro dono;
+
     @Column(name = "comissao_porcentagem")
     private Double comissaoPorcentagem = 50.0;
 
     private String especialidade; // Ex: "Barba", "Corte Clássico"
+
+    private Boolean trabalhaComoBarbeiro = true;
+
+
+    @Enumerated(EnumType.STRING)
+    private TipoPlano plano = TipoPlano.SOLO;
+
+    // NOVO: Token para enviar notificação (Salvo quando ele loga no celular/PC)
+    private String tokenPushNotification;
 
     // Opcional: Lista de agendamentos desse barbeiro (bidirecional)
     // @OneToMany(mappedBy = "barbeiro")

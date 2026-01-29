@@ -31,22 +31,25 @@ public class AgendamentoService {
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
     private final BloqueioRepository bloqueioRepository;
+    private final NotificacaoService notificacaoService;
 
     public AgendamentoService(
             BloqueioRepository bloqueioRepository,
             AgendamentoRepository agendamentoRepository,
             BarbeiroRepository barbeiroRepository,
             ClienteRepository clienteRepository,
-            ServicoRepository servicoRepository) {
+            ServicoRepository servicoRepository,
+            NotificacaoService notificacaoService) {
         this.agendamentoRepository = agendamentoRepository;
         this.barbeiroRepository = barbeiroRepository;
         this.clienteRepository = clienteRepository;
         this.servicoRepository = servicoRepository;
         this.bloqueioRepository = bloqueioRepository;
+        this.notificacaoService = notificacaoService;
     }
 
     @Transactional
-    public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
+    public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) { // Ajustei o tipo para DadosAgendamentoDTO se for o padrão
 
         // 1. Validar se as entidades existem
         Barbeiro barbeiro = barbeiroRepository.findById(dados.barbeiroId())
@@ -57,6 +60,8 @@ public class AgendamentoService {
 
         Servico servico = servicoRepository.findById(dados.servicoId())
                 .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
+
+        // --- REMOVIDO DAQUI: O SAVE E O ALERTA ESTAVAM NO LUGAR ERRADO ---
 
         // Variável principal da data
         LocalDateTime dataInicio = dados.dataHoraInicio();
@@ -92,7 +97,7 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("Este barbeiro já está ocupado neste horário.");
         }
 
-        // 7. Salvar
+        // 7. Montar Objeto
         Agendamento agendamento = new Agendamento();
         agendamento.setCliente(cliente);
         agendamento.setBarbeiro(barbeiro);
@@ -102,9 +107,20 @@ public class AgendamentoService {
         agendamento.setValorCobrado(servico.getPreco());
         agendamento.setStatus(StatusAgendamento.AGENDADO);
 
-        Agendamento salvar = agendamentoRepository.save(agendamento);
+        // 8. Salvar REALMENTE no banco
+        Agendamento agendamentoSalvo = agendamentoRepository.save(agendamento);
 
-        return DetalhamentoAgendamentoDTO.toDTO(salvar);
+        // 🔥 DISPARA O ALERTA (AGORA SIM, NO LUGAR CERTO)
+        // Só dispara se tudo acima deu certo e salvou no banco
+        try {
+            // Usa 'agendamentoSalvo' que acabou de ser criado
+            notificacaoService.notificarBarbeiro(agendamentoSalvo.getBarbeiro(), agendamentoSalvo);
+        } catch (Exception e) {
+            // Loga o erro, mas não cancela o agendamento que já foi salvo
+            System.err.println("Erro ao enviar push: " + e.getMessage());
+        }
+
+        return DetalhamentoAgendamentoDTO.toDTO(agendamentoSalvo);
     }
 
     @Transactional
