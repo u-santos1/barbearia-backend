@@ -11,4 +11,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
     // ADICIONE ESTA LINHA:
     Optional<Cliente> findByTelefone(String telefone);
+
+    boolean existsByTelefone(String telefone);
+
 }

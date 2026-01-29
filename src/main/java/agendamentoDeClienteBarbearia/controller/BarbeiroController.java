@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.controller;
 
 
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.BarbeiroService;
@@ -18,28 +19,27 @@ import java.util.List;
 public class BarbeiroController {
 
     private final BarbeiroService service;
-    private final BarbeiroRepository repository; // Usamos o repository direto apenas para leituras (GET)
 
-    public BarbeiroController(BarbeiroService service, BarbeiroRepository repository) {
+    public BarbeiroController(BarbeiroService service) {
         this.service = service;
-        this.repository = repository;
     }
 
     @PostMapping
-    public ResponseEntity<Barbeiro> cadastrar(@RequestBody @Valid CadastroBarbeiroDTO dados) {
-        var barbeiro = service.cadastrar(dados);
-        // Retorna status 201 (Created)
-        return ResponseEntity.status(HttpStatus.CREATED).body(barbeiro);
+    public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrar(@RequestBody @Valid CadastroBarbeiroDTO dados) {
+        var barbeiro = service.cadastrar(dados); // Service deve retornar DTO, ou converta aqui
+        return ResponseEntity.status(HttpStatus.CREATED).body(new DetalhamentoBarbeiroDTO(barbeiro));
     }
 
     @GetMapping
-    public ResponseEntity<List<Barbeiro>> listar() {
-        // Para o frontend popular o <select> de barbeiros
-        return ResponseEntity.ok(repository.findAll());
+    public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listar() {
+        // O Service que busca, filtra os ativos e converte para DTO
+        return ResponseEntity.ok(service.listarTodos());
     }
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> excluir(@PathVariable Long id) {
-        repository.deleteById(id);
+    public ResponseEntity<Void> inativar(@PathVariable Long id) {
+        // Mudamos de "excluir" para "inativar" (Soft Delete)
+        service.inativar(id);
         return ResponseEntity.noContent().build();
     }
 }

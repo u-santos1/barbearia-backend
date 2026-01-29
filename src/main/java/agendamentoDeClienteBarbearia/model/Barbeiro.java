@@ -1,5 +1,6 @@
 package agendamentoDeClienteBarbearia.model;
 
+import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -40,6 +41,12 @@ public class Barbeiro implements UserDetails {
     private String especialidade; // Ex: "Barba", "Corte Clássico"
 
     private Boolean trabalhaComoBarbeiro = true;
+
+    @Enumerated(EnumType.STRING)
+    private PerfilAcesso perfil;
+
+    @Column(nullable = false)
+    private Boolean ativo = true;
 
 
     @Enumerated(EnumType.STRING)

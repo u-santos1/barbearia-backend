@@ -21,44 +21,30 @@ import java.util.List;
 public class ClienteController {
 
     private final ClienteService service;
-    private final ClienteRepository repository;
 
-    public ClienteController(ClienteService service, ClienteRepository repository) {
+    public ClienteController(ClienteService service) {
         this.service = service;
-        this.repository = repository;
     }
 
     @PostMapping
-    @Transactional
-    public ResponseEntity cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
-        // Agora 'service' existe na memória
+    public ResponseEntity<DetalhamentoClienteDTO> cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
         var dto = service.cadastrarOuAtualizar(dados);
 
-        // Retorna 201 Created com a URL
         var uri = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}").buildAndExpand(dto.id()).toUri();
 
         return ResponseEntity.created(uri).body(dto);
     }
 
-
     @GetMapping("/recuperar-id")
-    public ResponseEntity<?> recuperarIdPorEmail(@RequestParam String email) {
-        var cliente = repository.findByEmail(email);
-
-        if (cliente.isPresent()) {
-            // Retorna apenas o ID para o front
-            return ResponseEntity.ok(cliente.get().getId());
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email não encontrado.");
-        }
+    public ResponseEntity<Long> recuperarIdPorEmail(@RequestParam String email) {
+        // Lógica movida para o service
+        Long id = service.buscarIdPorEmail(email);
+        return ResponseEntity.ok(id);
     }
+
     @GetMapping
-    public ResponseEntity<List<Cliente>> listarClientes() {
-        // Adicione @PreAuthorize("hasAuthority('Dono')") se quiser proteger
-        return ResponseEntity.ok(repository.findAll());
+    public ResponseEntity<List<DetalhamentoClienteDTO>> listarClientes() {
+        return ResponseEntity.ok(service.listarTodos());
     }
 }
-
-    // Geralmente não expomos "listar todos os clientes" publicamente por privacidade,
-    // mas para estudo você pode adicionar um @GetMapping se quiser

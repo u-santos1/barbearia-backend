@@ -4,6 +4,7 @@ import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Bloqueio;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.repository.BloqueioRepository;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,27 +17,19 @@ import java.time.LocalDateTime;
 @CrossOrigin(origins = "*")
 public class BloqueioController {
 
-    @Autowired
-    private BloqueioRepository repository;
-    @Autowired private BarbeiroRepository barbeiroRepository;
+    private final BloqueioService service; // Crie este Service se não tiver
+
+    public BloqueioController(BloqueioService service) {
+        this.service = service;
+    }
 
     @PostMapping
-    public ResponseEntity criarBloqueio(@RequestBody DadosBloqueioDTO dados, @RequestHeader("Authorization") String token) {
-
-        // 1. Descobrir quem está logado (Simulação rápida)
-        // O jeito certo é usar o SecurityContextHolder ou decodificar o token
+    public ResponseEntity<Void> criarBloqueio(@RequestBody @Valid DadosBloqueioDTO dados) {
+        // Pega o usuário logado de forma limpa
         String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
-        Barbeiro barbeiro = barbeiroRepository.findByEmail(emailLogado).orElseThrow();
 
-        // 2. Se for Dono tentando bloquear agenda de outro (Futuro), lógica seria diferente.
-        // Por enquanto, assume que quem logou está bloqueando a PRÓPRIA agenda.
-
-        var bloqueio = new Bloqueio(null, barbeiro, dados.inicio(), dados.fim(), dados.motivo());
-        repository.save(bloqueio);
+        service.bloquearAgenda(dados, emailLogado);
 
         return ResponseEntity.ok().build();
     }
-
-    // DTO auxiliar (pode criar arquivo separado)
-    public record DadosBloqueioDTO(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim, String motivo) {}
 }

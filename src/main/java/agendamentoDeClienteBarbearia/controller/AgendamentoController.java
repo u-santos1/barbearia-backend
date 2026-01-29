@@ -16,27 +16,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
+
 import java.time.LocalDate;
-import java.time.LocalTime;
+
 import java.util.List;
-
-
-
 
 @RestController
 @RequestMapping("/agendamentos")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Em produção, especifique a origem exata (ex: https://seusite.com)
 public class AgendamentoController {
 
     private final AgendamentoService service;
-    private final AgendamentoRepository repository;
-    private final BarbeiroRepository barbeiroRepository;
 
-    public AgendamentoController(AgendamentoService service, AgendamentoRepository repository, BarbeiroRepository barbeiroRepository) {
+    // Injeção via construtor (Melhor prática que @Autowired)
+    public AgendamentoController(AgendamentoService service) {
         this.service = service;
-        this.repository = repository;
-        this.barbeiroRepository = barbeiroRepository;
     }
 
     // 1. CRIAR AGENDAMENTO
@@ -51,46 +45,29 @@ public class AgendamentoController {
     public ResponseEntity<List<Agendamento>> listarAgendaDoBarbeiro(
             @PathVariable Long idBarbeiro,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-
-        var inicioDia = data.atStartOfDay();
-        var fimDia = data.atTime(LocalTime.MAX);
-        var agendamentos = repository.findByBarbeiroIdAndDataHoraInicioBetween(idBarbeiro, inicioDia, fimDia);
-
-        return ResponseEntity.ok(agendamentos);
+        // O Controller não sabe como buscar, ele só pede ao service
+        var lista = service.listarAgendaDoBarbeiro(idBarbeiro, data);
+        return ResponseEntity.ok(lista);
     }
 
     // 3. ADMIN - LISTAR TODOS
     @GetMapping("/admin/todos")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos() {
-        var todos = repository.findAll();
-        var dtos = todos.stream()
-                .map(DetalhamentoAgendamentoDTO::toDTO)
-                .toList();
-        return ResponseEntity.ok(dtos);
+        return ResponseEntity.ok(service.listarTodos());
     }
 
     // 4. CLIENTE - SEUS AGENDAMENTOS
     @GetMapping("/cliente/{clienteId}")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorCliente(@PathVariable Long clienteId) {
-        var agendamentos = repository.findByClienteIdOrderByDataHoraInicioDesc(clienteId);
-        var dtos = agendamentos.stream()
-                .map(DetalhamentoAgendamentoDTO::toDTO)
-                .toList();
-        return ResponseEntity.ok(dtos);
+        return ResponseEntity.ok(service.listarPorCliente(clienteId));
     }
 
     // 5. BARBEIRO - MEUS AGENDAMENTOS
     @GetMapping("/meus")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarMeusAgendamentos() {
+        // Extraímos o usuário logado aqui (Camada de Segurança/Web)
         var emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
-        var barbeiro = barbeiroRepository.findByEmail(emailLogado);
-
-        if (barbeiro.isPresent()) {
-            var agendamentos = repository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiro.get().getId());
-            var dtos = agendamentos.stream().map(DetalhamentoAgendamentoDTO::toDTO).toList();
-            return ResponseEntity.ok(dtos);
-        }
-        return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(service.listarMeusAgendamentos(emailLogado));
     }
 
     // 6. BUSCAR DISPONIBILIDADE
@@ -107,7 +84,6 @@ public class AgendamentoController {
     // --- AÇÕES DE MUDANÇA DE STATUS ---
 
     @DeleteMapping("/{id}")
-    @Transactional
     public ResponseEntity<Void> cancelar(@PathVariable Long id) {
         service.cancelar(id);
         return ResponseEntity.noContent().build();
@@ -134,42 +110,8 @@ public class AgendamentoController {
     // --- RELATÓRIO FINANCEIRO ---
     @GetMapping("/admin/financeiro")
     public ResponseEntity<ResumoFinanceiroDTO> relatorioFinanceiro() {
-        List<Agendamento> todos = repository.findAll();
-
-        BigDecimal total = BigDecimal.ZERO;
-        BigDecimal casa = BigDecimal.ZERO;
-        BigDecimal repasse = BigDecimal.ZERO;
-        int qtdConcluidos = 0;
-
-        for (Agendamento a : todos) {
-            // Verifica se o status é CONCLUIDO usando o ENUM
-            if (a.getStatus() == StatusAgendamento.CONCLUIDO) {
-                qtdConcluidos++;
-
-                BigDecimal valor = a.getServico().getPreco();
-
-                // Lógica de comissão com fallback para 50%
-                Double comissaoDouble = a.getBarbeiro().getComissaoPorcentagem() != null
-                        ? a.getBarbeiro().getComissaoPorcentagem()
-                        : 50.0;
-
-                BigDecimal porcentagemComissao = BigDecimal.valueOf(comissaoDouble)
-                        .divide(BigDecimal.valueOf(100));
-
-                BigDecimal valorBarbeiro = valor.multiply(porcentagemComissao);
-                BigDecimal valorCasa = valor.subtract(valorBarbeiro);
-
-                total = total.add(valor);
-                repasse = repasse.add(valorBarbeiro);
-                casa = casa.add(valorCasa);
-            }
-        }
-
-        return ResponseEntity.ok(new ResumoFinanceiroDTO(
-                total.doubleValue(),
-                casa.doubleValue(),
-                repasse.doubleValue(),
-                qtdConcluidos
-        ));
+        // A lógica pesada saiu daqui e foi para o service
+        var relatorio = service.gerarRelatorioFinanceiro();
+        return ResponseEntity.ok(relatorio);
     }
 }

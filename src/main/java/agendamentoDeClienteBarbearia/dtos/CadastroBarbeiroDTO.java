@@ -24,7 +24,9 @@ public record CadastroBarbeiroDTO(
         String senha,
 
         @NotBlank(message = "A especialidade é obrigatória")
-        String especialidade // Ex: "Corte", "Barba", "Colorimetria"
+        String especialidade, // Ex: "Corte", "Barba", "Colorimetria"
 
-        ,Boolean vaiCortarCabelo
+        Boolean vaiCortarCabelo,
+             // Para saber se agenda serviços
+        Double comissaoPorcentagem    // Para o cálculo financeiro (ex: 50.0)
 ) {}

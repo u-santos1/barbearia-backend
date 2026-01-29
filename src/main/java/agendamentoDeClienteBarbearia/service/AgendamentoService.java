@@ -3,6 +3,7 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
+import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
@@ -13,6 +14,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -214,5 +216,73 @@ public class AgendamentoService {
         }
 
         return horariosLivres;
+    }
+
+
+    public ResumoFinanceiroDTO gerarRelatorioFinanceiro() {
+        List<Agendamento> todos = agendamentoRepository.findAll();
+
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal casa = BigDecimal.ZERO;
+        BigDecimal repasse = BigDecimal.ZERO;
+        int qtdConcluidos = 0;
+
+        for (Agendamento a : todos) {
+            if (a.getStatus() == StatusAgendamento.CONCLUIDO) {
+                qtdConcluidos++;
+
+                BigDecimal valor = a.getValorCobrado(); // Usar o valor salvo no agendamento é mais seguro que o do serviço atual
+
+                // Regra de comissão (se nulo, usa 50% padrão)
+                Double comissaoDouble = a.getBarbeiro().getComissaoPorcentagem() != null // Melhorar isso depois: BigDecimal no banco seria ideal
+                        ? a.getBarbeiro().getComissaoPorcentagem() // Assume que no DTO/Banco é Double
+                        : 50.0;
+
+                // Corrige conversão segura de Double para BigDecimal
+                BigDecimal porcentagem = BigDecimal.valueOf(comissaoDouble).divide(new BigDecimal("100"));
+
+                BigDecimal valorBarbeiro = valor.multiply(porcentagem);
+                BigDecimal valorCasa = valor.subtract(valorBarbeiro);
+
+                total = total.add(valor);
+                repasse = repasse.add(valorBarbeiro);
+                casa = casa.add(valorCasa);
+            }
+        }
+
+        return new ResumoFinanceiroDTO(
+                total.doubleValue(),
+                casa.doubleValue(),
+                repasse.doubleValue(),
+                qtdConcluidos
+        );
+    }
+
+    // Métodos de Listagem (Pass-through para encapsular o Repository)
+    public List<DetalhamentoAgendamentoDTO> listarTodos() {
+        return agendamentoRepository.findAll().stream()
+                .map(DetalhamentoAgendamentoDTO::toDTO)
+                .toList();
+    }
+
+    public List<DetalhamentoAgendamentoDTO> listarPorCliente(Long clienteId) {
+        return agendamentoRepository.findByClienteIdOrderByDataHoraInicioDesc(clienteId).stream()
+                .map(DetalhamentoAgendamentoDTO::toDTO)
+                .toList();
+    }
+
+    public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
+        var barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
+                .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
+
+        return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiro.getId()).stream()
+                .map(DetalhamentoAgendamentoDTO::toDTO)
+                .toList();
+    }
+
+    public List<Agendamento> listarAgendaDoBarbeiro(Long idBarbeiro, LocalDate data) {
+        var inicioDia = data.atStartOfDay();
+        var fimDia = data.atTime(LocalTime.MAX);
+        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(idBarbeiro, inicioDia, fimDia);
     }
 }

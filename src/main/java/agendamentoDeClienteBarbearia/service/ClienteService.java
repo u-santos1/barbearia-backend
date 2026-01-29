@@ -23,40 +23,62 @@ public class ClienteService {
     @Transactional
     public DetalhamentoClienteDTO cadastrarOuAtualizar(CadastroClienteDTO dados) {
 
-        Optional<Cliente> clienteExistente = Optional.empty();
-        Cliente clienteFinal;
+        // Normaliza entradas (evita NullPointerException em strings vazias)
+        String emailInput = (dados.email() != null && !dados.email().isBlank()) ? dados.email().trim() : null;
+        String telefoneInput = dados.telefone().trim();
 
-        // 1. Lógica de Busca (Prioridade: E-mail -> Telefone)
-        if (dados.email() != null && !dados.email().isBlank()) {
-            clienteExistente = repository.findByEmail(dados.email());
+        Cliente clienteFinal = null;
+
+        // 1. Tenta achar pelo E-mail (Prioridade Máxima: Identificador mais forte)
+        if (emailInput != null) {
+            clienteFinal = repository.findByEmail(emailInput).orElse(null);
         }
 
-        if (clienteExistente.isEmpty()) {
-            clienteExistente = repository.findByTelefone(dados.telefone());
+        // 2. Se não achou pelo e-mail, tenta pelo telefone
+        if (clienteFinal == null) {
+            clienteFinal = repository.findByTelefone(telefoneInput).orElse(null);
         }
 
-        // 2. Decisão: Atualizar ou Criar
-        if (clienteExistente.isPresent()) {
-            clienteFinal = clienteExistente.get();
+        if (clienteFinal != null) {
+            // --- ATUALIZAÇÃO (UP) ---
 
-            // --- ATUALIZAÇÕES ---
-            clienteFinal.setNome(dados.nome());
-            clienteFinal.setTelefone(dados.telefone()); // <--- CORREÇÃO: Faltava atualizar o telefone!
-
-            // Só atualiza o email se ele foi informado e não está em branco
-            if (dados.email() != null && !dados.email().isBlank()) {
-                // (Opcional) Poderia verificar se esse email novo já não pertence a OUTRA pessoa
-                clienteFinal.setEmail(dados.email());
+            // 🚨 BLINDAGEM DE CONFLITO:
+            // Se encontrei o cliente pelo telefone, mas ele mandou um e-mail novo...
+            // Preciso garantir que esse e-mail novo não é de OUTRA pessoa.
+            if (emailInput != null && !emailInput.equals(clienteFinal.getEmail())) {
+                boolean emailJaExiste = repository.existsByEmail(emailInput);
+                if (emailJaExiste) {
+                    throw new RegraDeNegocioException("Este e-mail já pertence a outro cliente cadastrado.");
+                }
+                clienteFinal.setEmail(emailInput);
             }
 
-            // O @Transactional faz o "Dirty Checking" e salva sozinho ao fim do método.
+            clienteFinal.setNome(dados.nome());
+            clienteFinal.setTelefone(telefoneInput);
+
+            // O @Transactional salvará automaticamente (Dirty Checking),
+            // mas chamar o save() não faz mal e deixa explícito.
+            repository.save(clienteFinal);
+
         } else {
-            // --- CRIAÇÃO ---
+            // --- CRIAÇÃO (INSERT) ---
+
+            // Verifica se o telefone já existe (caso raro de concorrência, mas bom validar)
+            if (repository.existsByTelefone(telefoneInput)) {
+                // Recupera o usuário para não duplicar (Fail-safe)
+                clienteFinal = repository.findByTelefone(telefoneInput).get();
+                return cadastrarOuAtualizar(dados); // Recursividade segura: tenta atualizar de novo
+            }
+
             clienteFinal = new Cliente(dados);
             repository.save(clienteFinal);
         }
 
-        // 3. Retorno
         return new DetalhamentoClienteDTO(clienteFinal);
+    }
+    public Long buscarIdPorEmail(String email) {
+        return repository.findByEmail(email)
+                .map(Cliente::getId)
+                .orElseThrow(() -> new RegraDeNegocioException("Email não encontrado"));
     }
 }

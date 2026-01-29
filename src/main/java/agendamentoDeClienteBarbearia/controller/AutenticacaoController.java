@@ -14,14 +14,15 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*")
 public class AutenticacaoController {
 
-    @Autowired
-    private AutenticacaoService service; // Injetamos o Service, não o Manager
+    private final AutenticacaoService service;
+
+    public AutenticacaoController(AutenticacaoService service) {
+        this.service = service;
+    }
 
     @PostMapping("/login")
     public ResponseEntity<TokenJWTData> efetuarLogin(@RequestBody @Valid LoginDTO dados) {
-        // O Controller não sabe como loga, ele só pede pro Service
         var tokenData = service.realizarLogin(dados);
-
         return ResponseEntity.ok(tokenData);
     }
 }

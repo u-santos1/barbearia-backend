@@ -18,11 +18,9 @@ import java.util.List;
 public class ServicoController {
 
     private final ServicoService service;
-    private final ServicoRepository repository;
 
-    public ServicoController(ServicoService service, ServicoRepository repository) {
+    public ServicoController(ServicoService service) {
         this.service = service;
-        this.repository = repository;
     }
 
     @PostMapping
@@ -33,12 +31,14 @@ public class ServicoController {
 
     @GetMapping
     public ResponseEntity<List<Servico>> listar() {
-        // O frontend precisa disso para mostrar a lista de preços e opções
-        return ResponseEntity.ok(repository.findAll());
+        // Service deve retornar apenas serviços ATIVOS
+        return ResponseEntity.ok(service.listarAtivos());
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(@PathVariable Long id) {
-        repository.deleteById(id);
+        // Soft Delete (apenas desativa)
+        service.excluir(id);
         return ResponseEntity.noContent().build();
     }
 }

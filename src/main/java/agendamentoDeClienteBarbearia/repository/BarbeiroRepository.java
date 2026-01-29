@@ -27,4 +27,6 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     List<Barbeiro> findAllByTrabalhaComoBarbeiroTrue();
 
     long countByDonoId(Long donoId);
+
+    List<Barbeiro> findAllByAtivoTrue();
     }
