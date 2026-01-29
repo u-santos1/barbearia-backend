@@ -11,7 +11,7 @@ import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO; // Importe o DTO c
 import jakarta.persistence.*;
 import lombok.*;
 
-@Table(name = "clientes")
+@Table(name = "tb_clientes")
 @Entity(name = "Cliente")
 @Getter
 @Setter
