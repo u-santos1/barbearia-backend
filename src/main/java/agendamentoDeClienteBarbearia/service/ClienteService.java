@@ -9,6 +9,7 @@ import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import agendamentoDeClienteBarbearia.model.Cliente;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -81,4 +82,10 @@ public class ClienteService {
                 .map(Cliente::getId)
                 .orElseThrow(() -> new RegraDeNegocioException("Email não encontrado"));
     }
-}
+    public List<DetalhamentoClienteDTO> listarTodos() {
+        return repository.findAll().stream()
+                .map(DetalhamentoClienteDTO::new)
+                .toList();
+    }
+
+    }

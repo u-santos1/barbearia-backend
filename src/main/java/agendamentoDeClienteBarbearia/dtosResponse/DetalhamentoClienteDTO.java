@@ -4,14 +4,18 @@ import agendamentoDeClienteBarbearia.model.Cliente;
 
 
 
-public record DetalhamentoClienteDTO(Long id, String nome, String telefone, String email) {
-    // Construtor que recebe a entidade Cliente
+
+
+import agendamentoDeClienteBarbearia.model.Cliente;
+
+public record DetalhamentoClienteDTO(
+        Long id,
+        String nome,
+        String email,
+        String telefone
+) {
+    // 👇 ESSE CONSTRUTOR É OBRIGATÓRIO PARA O SERVICE FUNCIONAR
     public DetalhamentoClienteDTO(Cliente cliente) {
-        this(
-                cliente.getId(),
-                cliente.getNome(),
-                cliente.getTelefone(),
-                cliente.getEmail()
-        );
+        this(cliente.getId(), cliente.getNome(), cliente.getEmail(), cliente.getTelefone());
     }
 }
