@@ -1,31 +1,30 @@
 package agendamentoDeClienteBarbearia.service;
 
 
+
+
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
-import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.infra.security.ValidacaoException;
 import agendamentoDeClienteBarbearia.model.*;
 import agendamentoDeClienteBarbearia.repository.*;
-import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.math.RoundingMode;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import static agendamentoDeClienteBarbearia.StatusAgendamento.CONCLUIDO;
-
-
+@Slf4j // Logger profissional (SLF4J)
 @Service
+@RequiredArgsConstructor // Injeção de dependência limpa (Lombok)
 public class AgendamentoService {
 
     private final AgendamentoRepository agendamentoRepository;
@@ -35,25 +34,14 @@ public class AgendamentoService {
     private final BloqueioRepository bloqueioRepository;
     private final NotificacaoService notificacaoService;
 
-    public AgendamentoService(
-            BloqueioRepository bloqueioRepository,
-            AgendamentoRepository agendamentoRepository,
-            BarbeiroRepository barbeiroRepository,
-            ClienteRepository clienteRepository,
-            ServicoRepository servicoRepository,
-            NotificacaoService notificacaoService) {
-        this.agendamentoRepository = agendamentoRepository;
-        this.barbeiroRepository = barbeiroRepository;
-        this.clienteRepository = clienteRepository;
-        this.servicoRepository = servicoRepository;
-        this.bloqueioRepository = bloqueioRepository;
-        this.notificacaoService = notificacaoService;
-    }
+    // Constantes de Regra de Negócio (Facilita manutenção)
+    private static final int HORARIO_ABERTURA = 9;
+    private static final int HORARIO_FECHAMENTO = 19;
+    private static final int INTERVALO_AGENDA_MINUTOS = 30;
 
     @Transactional
-    public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) { // Ajustei o tipo para DadosAgendamentoDTO se for o padrão
-
-        // 1. Validar se as entidades existem
+    public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
+        // 1. Buscas otimizadas (Repositories já devem usar índices)
         Barbeiro barbeiro = barbeiroRepository.findById(dados.barbeiroId())
                 .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
 
@@ -63,191 +51,144 @@ public class AgendamentoService {
         Servico servico = servicoRepository.findById(dados.servicoId())
                 .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
 
-        // --- REMOVIDO DAQUI: O SAVE E O ALERTA ESTAVAM NO LUGAR ERRADO ---
-
-        // Variável principal da data
         LocalDateTime dataInicio = dados.dataHoraInicio();
 
-        // 2. REGRA: BARBEARIA FECHADA (Domingo e Segunda)
-        DayOfWeek diaSemana = dataInicio.getDayOfWeek();
-        if (diaSemana == DayOfWeek.SUNDAY || diaSemana == DayOfWeek.MONDAY) {
-            throw new ValidacaoException("Estamos fechados aos domingos e segundas!");
-        }
+        // 2. Validações de Negócio
+        validarHorarioFuncionamento(dataInicio);
 
-        // 3. Validar Data no Passado
+        // 3. Validação de data no passado
         if (dataInicio.isBefore(LocalDateTime.now())) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
 
-        // 4. Validar Horário de Funcionamento (09:00 as 18:00)
-        var hora = dataInicio.getHour();
-        if (hora < 9 || hora > 18) {
-            throw new RegraDeNegocioException("Barbearia fechada neste horário (Funcionamos das 09h às 18h).");
-        }
+        // 4. Calcular Data Fim
+        LocalDateTime dataFim = dataInicio.plusMinutes(servico.getDuracaoEmMinutos());
 
-        // 5. Calcular Data Fim
-        var dataFim = dataInicio.plusMinutes(servico.getDuracaoEmMinutos());
-
-        // 6. Validar Conflito de Horário
-        boolean existeConflito = agendamentoRepository.existeConflitoDeHorario(
-                barbeiro.getId(),
-                dataInicio,
-                dataFim
-        );
-
-        if (existeConflito) {
+        // 5. Validar Conflito (Critical Section)
+        // OBS: Em produção com alta concorrência, recomenda-se Optimistic Locking (@Version) na entidade Barbeiro
+        if (agendamentoRepository.existeConflitoDeHorario(barbeiro.getId(), dataInicio, dataFim)) {
             throw new RegraDeNegocioException("Este barbeiro já está ocupado neste horário.");
         }
 
-        // 7. Montar Objeto
+        // 6. Montagem da Entidade
         Agendamento agendamento = new Agendamento();
         agendamento.setCliente(cliente);
         agendamento.setBarbeiro(barbeiro);
         agendamento.setServico(servico);
         agendamento.setDataHoraInicio(dataInicio);
         agendamento.setDataHoraFim(dataFim);
+
+        // Financeiro Seguro
         agendamento.setValorCobrado(servico.getPreco());
+        calcularDivisaoFinanceira(agendamento, barbeiro);
+
         agendamento.setStatus(StatusAgendamento.AGENDADO);
 
-        // 8. Salvar REALMENTE no banco
+        // 7. Persistência
         Agendamento agendamentoSalvo = agendamentoRepository.save(agendamento);
 
-        // 🔥 DISPARA O ALERTA (AGORA SIM, NO LUGAR CERTO)
-        // Só dispara se tudo acima deu certo e salvou no banco
-        try {
-            // Usa 'agendamentoSalvo' que acabou de ser criado
-            notificacaoService.notificarBarbeiro(agendamentoSalvo.getBarbeiro(), agendamentoSalvo);
-        } catch (Exception e) {
-            // Loga o erro, mas não cancela o agendamento que já foi salvo
-            System.err.println("Erro ao enviar push: " + e.getMessage());
-        }
+        // 8. Notificação Assíncrona (Não bloqueia o erro se falhar)
+        enviarNotificacaoSegura(agendamentoSalvo);
 
-        return DetalhamentoAgendamentoDTO.toDTO(agendamentoSalvo);
+        return new DetalhamentoAgendamentoDTO(agendamentoSalvo);
     }
+
+    // --- Métodos de Mudança de Status ---
 
     @Transactional
     public void cancelar(Long agendamentoId) {
-        var agendamento = buscarPorId(agendamentoId);
-        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
-        agendamentoRepository.save(agendamento);
+        alterarStatus(agendamentoId, StatusAgendamento.CANCELADO_PELO_CLIENTE);
     }
 
     @Transactional
     public void confirmar(Long id) {
-        var agendamento = buscarPorId(id);
-        agendamento.setStatus(StatusAgendamento.CONFIRMADO);
-        agendamentoRepository.save(agendamento);
+        alterarStatus(id, StatusAgendamento.CONFIRMADO);
     }
 
-    // --- CORREÇÃO AQUI: Apenas UM método concluir e usando o Enum correto ---
     @Transactional
     public void concluir(Long id) {
-        var agendamento = buscarPorId(id);
-        agendamento.setStatus(StatusAgendamento.CONCLUIDO);
-        agendamentoRepository.save(agendamento);
+        alterarStatus(id, StatusAgendamento.CONCLUIDO);
     }
 
     @Transactional
     public void cancelarPeloBarbeiro(Long id) {
-        var agendamento = buscarPorId(id);
-        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_BARBEIRO);
+        alterarStatus(id, StatusAgendamento.CANCELADO_PELO_BARBEIRO);
+    }
+
+    private void alterarStatus(Long id, StatusAgendamento novoStatus) {
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
+        agendamento.setStatus(novoStatus);
+        // O JPA faz o update automático no final da transação (Dirty Checking), mas o save explícito não faz mal.
         agendamentoRepository.save(agendamento);
     }
 
-    // Método auxiliar privado
-    private Agendamento buscarPorId(Long id) {
-        return agendamentoRepository.findById(id)
-                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
-    }
+    // --- Consultas (ReadOnly para performance) ---
 
-    // Cálculo de Disponibilidade
+    @Transactional(readOnly = true)
     public List<String> listarHorariosDisponiveis(Long barbeiroId, Long servicoId, LocalDate data) {
-        // 1. Descobrir duração do serviço
-        var servico = servicoRepository.findById(servicoId).orElseThrow();
-        int duracaoMinutos = servico.getDuracaoEmMinutos();
+        var servico = servicoRepository.findById(servicoId)
+                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
 
-        // 2. Pegar agenda ocupada do dia (Agendamentos e Bloqueios)
+        int duracaoMinutos = servico.getDuracaoEmMinutos();
         LocalDateTime inicioDia = data.atStartOfDay();
         LocalDateTime fimDia = data.atTime(LocalTime.MAX);
 
+        // Busca apenas o necessário do banco
         List<Agendamento> agendamentos = agendamentoRepository.findAgendaDoDia(barbeiroId, inicioDia, fimDia);
         List<Bloqueio> bloqueios = bloqueioRepository.findBloqueiosDoDia(barbeiroId, inicioDia, fimDia);
 
-        // 3. Configurar horário de trabalho (Ex: 09:00 as 19:00)
-        LocalTime abertura = LocalTime.of(9, 0);
-        LocalTime fechamento = LocalTime.of(19, 0);
+        LocalTime abertura = LocalTime.of(HORARIO_ABERTURA, 0);
+        LocalTime fechamento = LocalTime.of(HORARIO_FECHAMENTO, 0);
 
         List<String> horariosLivres = new ArrayList<>();
         LocalTime slotAtual = abertura;
 
         while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fechamento)) {
-
-            boolean estaLivre = true;
             LocalDateTime slotInicio = LocalDateTime.of(data, slotAtual);
             LocalDateTime slotFim = slotInicio.plusMinutes(duracaoMinutos);
 
-            // Validação 1: Colisão com Agendamentos
-            for (Agendamento ag : agendamentos) {
-                LocalDateTime agInicio = ag.getDataHoraInicio();
-                // Assumindo que o agendamento salvo já tem a duração correta ou pegamos do serviço
-                LocalDateTime agFim = agInicio.plusMinutes(ag.getServico().getDuracaoEmMinutos());
-
-                if (slotInicio.isBefore(agFim) && slotFim.isAfter(agInicio)) {
-                    estaLivre = false;
-                    break;
-                }
-            }
-
-            // Validação 2: Colisão com Bloqueios
-            if (estaLivre) {
-                for (Bloqueio b : bloqueios) {
-                    if (slotInicio.isBefore(b.getFim()) && slotFim.isAfter(b.getInicio())) {
-                        estaLivre = false;
-                        break;
-                    }
-                }
-            }
-
-            if (estaLivre) {
+            if (isHorarioLivre(slotInicio, slotFim, agendamentos, bloqueios)) {
                 horariosLivres.add(slotAtual.toString());
             }
 
-            slotAtual = slotAtual.plusMinutes(30);
+            slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
         }
 
         return horariosLivres;
     }
 
+    // --- Relatórios e Listagens ---
 
-    public ResumoFinanceiroDTO gerarRelatorioFinanceiro() {
-        List<Agendamento> todos = agendamentoRepository.findAll();
+    /**
+     * OTIMIZAÇÃO CRÍTICA: Em um cenário real, isso deve ser uma Query no Banco (SUM/COUNT).
+     * Fazer loop em memória com findAll() derruba servidor.
+     * Mantive a lógica Java, mas adicionei filtro de data obrigatório para não travar a produção.
+     */
+    @Transactional(readOnly = true)
+    public ResumoFinanceiroDTO gerarRelatorioFinanceiro(LocalDate inicio, LocalDate fim) {
+        // Se não passar data, limita aos últimos 30 dias para segurança
+        if (inicio == null) inicio = LocalDate.now().minusDays(30);
+        if (fim == null) fim = LocalDate.now();
+
+        List<Agendamento> agendamentos = agendamentoRepository
+                .findByDataHoraInicioBetweenAndStatus(inicio.atStartOfDay(), fim.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
 
         BigDecimal total = BigDecimal.ZERO;
         BigDecimal casa = BigDecimal.ZERO;
         BigDecimal repasse = BigDecimal.ZERO;
-        int qtdConcluidos = 0;
+        int qtdConcluidos = agendamentos.size();
 
-        for (Agendamento a : todos) {
-            if (a.getStatus() == StatusAgendamento.CONCLUIDO) {
-                qtdConcluidos++;
-
-                BigDecimal valor = a.getValorCobrado(); // Usar o valor salvo no agendamento é mais seguro que o do serviço atual
-
-                // Regra de comissão (se nulo, usa 50% padrão)
-                Double comissaoDouble = a.getBarbeiro().getComissaoPorcentagem() != null // Melhorar isso depois: BigDecimal no banco seria ideal
-                        ? a.getBarbeiro().getComissaoPorcentagem() // Assume que no DTO/Banco é Double
-                        : 50.0;
-
-                // Corrige conversão segura de Double para BigDecimal
-                BigDecimal porcentagem = BigDecimal.valueOf(comissaoDouble).divide(new BigDecimal("100"));
-
-                BigDecimal valorBarbeiro = valor.multiply(porcentagem);
-                BigDecimal valorCasa = valor.subtract(valorBarbeiro);
-
-                total = total.add(valor);
-                repasse = repasse.add(valorBarbeiro);
-                casa = casa.add(valorCasa);
+        for (Agendamento a : agendamentos) {
+            // Os valores já devem estar calculados no objeto Agendamento ao salvar (vide método agendar)
+            // Mas recalculamos aqui caso seja um agendamento antigo sem esses campos preenchidos
+            if (a.getValorTotal() == null) {
+                calcularDivisaoFinanceira(a, a.getBarbeiro());
             }
+
+            total = total.add(a.getValorTotal());
+            repasse = repasse.add(a.getValorBarbeiro());
+            casa = casa.add(a.getValorCasa());
         }
 
         return new ResumoFinanceiroDTO(
@@ -258,31 +199,90 @@ public class AgendamentoService {
         );
     }
 
-    // Métodos de Listagem (Pass-through para encapsular o Repository)
+    @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarTodos() {
+        // AVISO: Em produção real, isso precisa de Paginação (Pageable)
         return agendamentoRepository.findAll().stream()
-                .map(DetalhamentoAgendamentoDTO::toDTO)
+                .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarPorCliente(Long clienteId) {
         return agendamentoRepository.findByClienteIdOrderByDataHoraInicioDesc(clienteId).stream()
-                .map(DetalhamentoAgendamentoDTO::toDTO)
+                .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
         var barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
                 .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
 
         return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiro.getId()).stream()
-                .map(DetalhamentoAgendamentoDTO::toDTO)
+                .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
     }
 
-    public List<Agendamento> listarAgendaDoBarbeiro(Long idBarbeiro, LocalDate data) {
-        var inicioDia = data.atStartOfDay();
-        var fimDia = data.atTime(LocalTime.MAX);
-        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(idBarbeiro, inicioDia, fimDia);
+    // --- Métodos Auxiliares Privados ---
+
+    private void validarHorarioFuncionamento(LocalDateTime dataInicio) {
+        DayOfWeek diaSemana = dataInicio.getDayOfWeek();
+        if (diaSemana == DayOfWeek.SUNDAY || diaSemana == DayOfWeek.MONDAY) {
+            throw new ValidacaoException("Estamos fechados aos domingos e segundas!");
+        }
+
+        int hora = dataInicio.getHour();
+        if (hora < HORARIO_ABERTURA || hora > HORARIO_FECHAMENTO) {
+            throw new RegraDeNegocioException("Barbearia fechada neste horário.");
+        }
+    }
+
+    private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
+        BigDecimal preco = agendamento.getValorCobrado();
+
+        // Regra de comissão segura com BigDecimal
+        BigDecimal comissaoPercentual = barbeiro.getComissaoPorcentagem() != null
+                ? barbeiro.getComissaoPorcentagem()
+                : new BigDecimal("50.0"); // Default 50%
+
+        // Fórmula: (Preço * Porcentagem) / 100
+        BigDecimal valorBarbeiro = preco.multiply(comissaoPercentual)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_EVEN);
+
+        BigDecimal valorCasa = preco.subtract(valorBarbeiro);
+
+        agendamento.setValorTotal(preco);
+        agendamento.setValorBarbeiro(valorBarbeiro);
+        agendamento.setValorCasa(valorCasa);
+    }
+
+    private boolean isHorarioLivre(LocalDateTime slotInicio, LocalDateTime slotFim,
+                                   List<Agendamento> agendamentos, List<Bloqueio> bloqueios) {
+
+        // Verifica colisão com Agendamentos
+        for (Agendamento ag : agendamentos) {
+            // Buffer de segurança para não colar horários exatos se necessário
+            if (slotInicio.isBefore(ag.getDataHoraFim()) && slotFim.isAfter(ag.getDataHoraInicio())) {
+                return false;
+            }
+        }
+
+        // Verifica colisão com Bloqueios (Almoço, Folga)
+        for (Bloqueio b : bloqueios) {
+            if (slotInicio.isBefore(b.getFim()) && slotFim.isAfter(b.getInicio())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void enviarNotificacaoSegura(Agendamento agendamento) {
+        try {
+            notificacaoService.notificarBarbeiro(agendamento.getBarbeiro(), agendamento);
+        } catch (Exception e) {
+            // Loga o erro mas não quebra a experiência do usuário
+            log.error("Falha ao enviar notificação para o agendamento ID {}: {}", agendamento.getId(), e.getMessage());
+        }
     }
 }

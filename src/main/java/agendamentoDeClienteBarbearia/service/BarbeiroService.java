@@ -1,50 +1,53 @@
 package agendamentoDeClienteBarbearia.service;
 
+
 import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
+import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
-import jakarta.transaction.Transactional;
-import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
-import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
-import org.springframework.beans.factory.annotation.Autowired;
+import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
+@Slf4j // Logs para produção (Auditoria)
 @Service
+@RequiredArgsConstructor // Injeção de dependência limpa
 public class BarbeiroService {
 
     private final BarbeiroRepository repository;
     private final PasswordEncoder passwordEncoder;
 
-    public BarbeiroService(BarbeiroRepository repository, PasswordEncoder passwordEncoder) {
-        this.repository = repository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
     // ========================================================
-    // 1. CADASTRAR DONO (CRIAÇÃO DE CONTA)
+    // 1. CADASTRAR DONO (CRIAÇÃO DE CONTA / SAAS)
     // ========================================================
     @Transactional
-    public Barbeiro cadastrar(CadastroBarbeiroDTO dados) {
+    public Barbeiro cadastrarDono(CadastroBarbeiroDTO dados) {
+        log.info("Iniciando cadastro de novo dono: {}", dados.email());
+
         if (repository.existsByEmail(dados.email())) {
             throw new RegraDeNegocioException("Este e-mail já está em uso.");
         }
 
         var barbeiro = new Barbeiro();
-        barbeiro.setNome(dados.nome());
-        barbeiro.setEmail(dados.email());
+        barbeiro.setNome(dados.nome().trim());
+        barbeiro.setEmail(dados.email().trim().toLowerCase());
         barbeiro.setSenha(passwordEncoder.encode(dados.senha()));
-        barbeiro.setEspecialidade(dados.especialidade());
+        barbeiro.setEspecialidade(dados.especialidade() != null ? dados.especialidade() : "Gestor");
 
-        // CONFIGURAÇÕES PADRÃO DE DONO
-        barbeiro.setPerfil(PerfilAcesso.ADMIN); // ⚠️ IMPORTANTE: Define que ele é o Dono
-        barbeiro.setTrabalhaComoBarbeiro(true);
-        barbeiro.setPlano(TipoPlano.SOLO);
-        barbeiro.setComissaoPorcentagem(100.0); // Dono ganha 100% (ou define lógica de lucro depois)
+        // CONFIGURAÇÕES DE DONO
+        barbeiro.setPerfil(PerfilAcesso.ADMIN);
+        barbeiro.setTrabalhaComoBarbeiro(true); // Dono geralmente corta, pode mudar depois
+        barbeiro.setPlano(TipoPlano.SOLO); // Começa no grátis/solo
+        barbeiro.setComissaoPorcentagem(new BigDecimal("100.00")); // Dono fica com tudo
+        barbeiro.setAtivo(true);
 
         return repository.save(barbeiro);
     }
@@ -53,59 +56,86 @@ public class BarbeiroService {
     // 2. CADASTRAR FUNCIONÁRIO (EQUIPE)
     // ========================================================
     @Transactional
-    public Barbeiro cadastrarNovoFuncionario(CadastroBarbeiroDTO dados, Long idDono) {
+    public Barbeiro cadastrarFuncionario(CadastroBarbeiroDTO dados, Long idDono) {
+        log.info("Dono ID {} tentando cadastrar funcionário: {}", idDono, dados.email());
+
         Barbeiro dono = repository.findById(idDono)
                 .orElseThrow(() -> new RegraDeNegocioException("Dono não encontrado"));
 
-        // 🚨 VALIDAÇÃO DO PLANO (CORRIGIDA)
+        // 🚨 VALIDAÇÃO DO PLANO (CRÍTICO PARA O NEGÓCIO)
+        // Se for SOLO, não pode ter equipe.
         if (dono.getPlano() == TipoPlano.SOLO) {
-            // Se o plano é SOLO, ele NÃO pode ter funcionários.
-            // O count serve para garantir, mas a regra deve ser estrita.
-            long totalFuncionarios = repository.countByDonoId(idDono);
-
-            if (totalFuncionarios > 0) {
-                // Se já tiver 1 (erro de base antiga), bloqueia.
-                // Mas a lógica real é: Plano Solo não adiciona ninguém.
-                throw new RegraDeNegocioException("Seu plano é SOLO. Faça upgrade para MULTI para contratar equipe.");
-            }
-
-            // Se quiser ser rigoroso: SOLO não adiciona NINGUÉM, nem o primeiro.
-            throw new RegraDeNegocioException("Seu plano é SOLO. O cadastro de equipe é exclusivo do plano MULTI.");
+            throw new RegraDeNegocioException("Seu plano atual (SOLO) não permite equipe. Faça o upgrade para o plano MULTI.");
         }
 
         if (repository.existsByEmail(dados.email())) {
-            throw new RegraDeNegocioException("Já existe um profissional com este e-mail.");
+            throw new RegraDeNegocioException("Já existe um profissional com este e-mail no sistema.");
         }
 
         Barbeiro novo = new Barbeiro();
-        novo.setNome(dados.nome());
-        novo.setEmail(dados.email());
-        novo.setEspecialidade("Barbeiro"); // Ou vem do DTO
+        novo.setNome(dados.nome().trim());
+        novo.setEmail(dados.email().trim().toLowerCase());
         novo.setSenha(passwordEncoder.encode(dados.senha()));
+        novo.setEspecialidade(dados.especialidade() != null ? dados.especialidade() : "Barbeiro");
 
-        // ⚠️ VINCULA AO DONO (HIERARQUIA)
+        // ⚠️ VINCULAÇÃO DE MULTI-TENANCY (ISOLAMENTO DE DADOS)
         novo.setDono(dono);
 
-        // ⚠️ DADOS VINDOS DO FRONT (Adicione isso no seu DTO Record se não tiver)
-        novo.setTrabalhaComoBarbeiro(dados.vaiCortarCabelo());
-        novo.setComissaoPorcentagem(dados.comissaoPorcentagem()); // Importante para o financeiro!
+        // Configurações do Funcionário
+        // Se o DTO não trouxer a info, assume que corta cabelo
+        novo.setTrabalhaComoBarbeiro(dados.vaiCortarCabelo() != null ? dados.vaiCortarCabelo() : true);
 
-        // ⚠️ SEGURANÇA: DEFINE PERFIL
-        // Se ele corta cabelo, é BARBEIRO. Se não, é RECEPÇÃO (exemplo).
-        // Por simplificação, vamos colocar todos como BARBEIRO ou ter um perfil FUNCIONARIO
+        // Financeiro Seguro (BigDecimal)
+        if (dados.comissaoPorcentagem() != null) {
+            novo.setComissaoPorcentagem(BigDecimal.valueOf(dados.comissaoPorcentagem()));
+        } else {
+            novo.setComissaoPorcentagem(new BigDecimal("50.00")); // Padrão de mercado
+        }
+
         novo.setPerfil(PerfilAcesso.BARBEIRO);
+        novo.setAtivo(true);
+        novo.setPlano(TipoPlano.SOLO); // O funcionário herda o contexto do dono, o plano dele individual é irrelevante
 
         return repository.save(novo);
     }
-    public List<DetalhamentoBarbeiroDTO> listarTodos() {
-        return repository.findAllByAtivoTrue().stream() // Assumindo que Barbeiro tem campo 'ativo'
+
+    // ========================================================
+    // 3. LISTAGEM SEGURA (FILTRADA POR BARBEARIA)
+    // ========================================================
+    @Transactional(readOnly = true) // Otimiza performance
+    public List<DetalhamentoBarbeiroDTO> listarEquipe(Long idDono) {
+        // CORREÇÃO CRÍTICA:
+        // Antes estava findAllByAtivoTrue() -> Isso trazia barbeiros de OUTRAS barbearias.
+        // Agora busca apenas quem pertence ao Dono logado OU é o próprio Dono.
+
+        // Regra: Traz o dono e seus funcionários
+        List<Barbeiro> equipe = repository.findAllByDonoIdOrId(idDono);
+
+        return equipe.stream()
+                .filter(Barbeiro::getAtivo) // Filtra inativos em memória ou na query (melhor na query se possível)
                 .map(DetalhamentoBarbeiroDTO::new)
                 .toList();
     }
 
     @Transactional
-    public void inativar(Long id) {
-        var barbeiro = repository.findById(id).orElseThrow();
-        barbeiro.setAtivo(false); // Adicione boolean ativo na entidade Barbeiro
+    public void inativar(Long idFuncionario, Long idDonoLogado) {
+        Barbeiro funcionario = repository.findById(idFuncionario)
+                .orElseThrow(() -> new RegraDeNegocioException("Profissional não encontrado"));
+
+        // SEGURANÇA: Garante que um dono não exclua funcionário de outro
+        if (!funcionario.getId().equals(idDonoLogado)) { // Se não for ele mesmo se excluindo
+            if (funcionario.getDono() == null || !funcionario.getDono().getId().equals(idDonoLogado)) {
+                throw new RegraDeNegocioException("Você não tem permissão para alterar este profissional.");
+            }
+        }
+
+        // Soft Delete (Não apaga do banco, só desativa para manter histórico financeiro)
+        funcionario.setAtivo(false);
+    }
+
+    // Método auxiliar para buscar pelo login
+    public Barbeiro buscarPorEmail(String email) {
+        return repository.findByEmail(email)
+                .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
     }
 }

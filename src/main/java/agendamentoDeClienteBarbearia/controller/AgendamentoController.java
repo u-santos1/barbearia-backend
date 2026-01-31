@@ -1,87 +1,66 @@
 package agendamentoDeClienteBarbearia.controller;
 
-import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
-import agendamentoDeClienteBarbearia.model.Agendamento;
-import agendamentoDeClienteBarbearia.repository.AgendamentoRepository;
-import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
+
 import agendamentoDeClienteBarbearia.service.AgendamentoService;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
-
 import java.util.List;
 
 @RestController
 @RequestMapping("/agendamentos")
-@CrossOrigin(origins = "*") // Em produção, especifique a origem exata (ex: https://seusite.com)
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class AgendamentoController {
 
     private final AgendamentoService service;
 
-    // Injeção via construtor (Melhor prática que @Autowired)
-    public AgendamentoController(AgendamentoService service) {
-        this.service = service;
-    }
-
-    // 1. CRIAR AGENDAMENTO
     @PostMapping
-    public ResponseEntity<DetalhamentoAgendamentoDTO> agendar(@RequestBody @Valid AgendamentoDTO dados) {
-        var agendamento = service.agendar(dados);
-        return ResponseEntity.status(HttpStatus.CREATED).body(agendamento);
+    public ResponseEntity<DetalhamentoAgendamentoDTO> agendar(@RequestBody @Valid AgendamentoDTO dados, UriComponentsBuilder uriBuilder) {
+        var dto = service.agendar(dados);
+        var uri = uriBuilder.path("/agendamentos/{id}").buildAndExpand(dto.id()).toUri();
+        return ResponseEntity.created(uri).body(dto);
     }
 
-    // 2. AGENDA DO BARBEIRO
+    // LISTAR AGENDA (Visualização do calendário)
     @GetMapping("/barbeiro/{idBarbeiro}")
-    public ResponseEntity<List<Agendamento>> listarAgendaDoBarbeiro(
+    public ResponseEntity<List<String>> listarHorariosDisponiveis(
             @PathVariable Long idBarbeiro,
+            @RequestParam Long servicoId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-        // O Controller não sabe como buscar, ele só pede ao service
-        var lista = service.listarAgendaDoBarbeiro(idBarbeiro, data);
+        // Correção: A rota /barbeiro/{id} geralmente traz a agenda ocupada ou slots livres.
+        // Aqui mapeei para a disponibilidade calculada pelo service
+        var lista = service.listarHorariosDisponiveis(idBarbeiro, servicoId, data);
         return ResponseEntity.ok(lista);
     }
 
-    // 3. ADMIN - LISTAR TODOS
+    // ADMIN - LISTAR TODOS (Paginação recomendada em produção)
     @GetMapping("/admin/todos")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
-    // 4. CLIENTE - SEUS AGENDAMENTOS
     @GetMapping("/cliente/{clienteId}")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorCliente(@PathVariable Long clienteId) {
         return ResponseEntity.ok(service.listarPorCliente(clienteId));
     }
 
-    // 5. BARBEIRO - MEUS AGENDAMENTOS
     @GetMapping("/meus")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarMeusAgendamentos() {
-        // Extraímos o usuário logado aqui (Camada de Segurança/Web)
         var emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(service.listarMeusAgendamentos(emailLogado));
     }
 
-    // 6. BUSCAR DISPONIBILIDADE
-    @GetMapping("/disponibilidade")
-    public ResponseEntity<List<String>> getDisponibilidade(
-            @RequestParam Long barbeiroId,
-            @RequestParam Long servicoId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-
-        var lista = service.listarHorariosDisponiveis(barbeiroId, servicoId, data);
-        return ResponseEntity.ok(lista);
-    }
-
-    // --- AÇÕES DE MUDANÇA DE STATUS ---
+    // --- AÇÕES ---
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelar(@PathVariable Long id) {
@@ -107,11 +86,15 @@ public class AgendamentoController {
         return ResponseEntity.ok().build();
     }
 
-    // --- RELATÓRIO FINANCEIRO ---
+    // --- RELATÓRIOS ---
+
     @GetMapping("/admin/financeiro")
-    public ResponseEntity<ResumoFinanceiroDTO> relatorioFinanceiro() {
-        // A lógica pesada saiu daqui e foi para o service
-        var relatorio = service.gerarRelatorioFinanceiro();
+    public ResponseEntity<ResumoFinanceiroDTO> relatorioFinanceiro(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim
+    ) {
+        // Agora passamos as datas para o service não estourar a memória
+        var relatorio = service.gerarRelatorioFinanceiro(inicio, fim);
         return ResponseEntity.ok(relatorio);
     }
 }

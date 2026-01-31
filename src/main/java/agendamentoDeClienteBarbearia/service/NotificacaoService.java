@@ -1,72 +1,114 @@
 package agendamentoDeClienteBarbearia.service;
 
-import agendamentoDeClienteBarbearia.model.Agendamento;
-import agendamentoDeClienteBarbearia.model.Barbeiro;
-import org.springframework.stereotype.Service;
-
-
 
 import agendamentoDeClienteBarbearia.model.Agendamento;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 public class NotificacaoService {
 
-    // 1. Logger profissional (Slf4j)
-    private static final Logger log = LoggerFactory.getLogger(NotificacaoService.class);
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper; // Para criar JSON seguro
 
-    // Formatador estático (Thread-safe e performático)
+    // Formatador thread-safe
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM 'às' HH:mm");
 
+    // CONFIGURAÇÕES (Vêm do application.properties)
+    @Value("${onesignal.app.id}")
+    private String oneSignalAppId;
+
+    @Value("${onesignal.api.key}")
+    private String oneSignalApiKey;
+
+    public NotificacaoService(RestTemplateBuilder restTemplateBuilder, ObjectMapper objectMapper) {
+        // Define timeout para não travar a thread async para sempre se a API cair
+        this.restTemplate = restTemplateBuilder
+                .setConnectTimeout(java.time.Duration.ofSeconds(5))
+                .setReadTimeout(java.time.Duration.ofSeconds(5))
+                .build();
+        this.objectMapper = objectMapper;
+    }
+
     /**
-     * @Async faz esse método rodar em uma thread separada.
-     * O servidor responde "OK" para o cliente IMEDIATAMENTE,
-     * enquanto o envio do push acontece em segundo plano.
+     * Envia notificação em background (Fire-and-forget).
+     * Não trava o agendamento do cliente.
      */
     @Async
     public void notificarBarbeiro(Barbeiro barbeiro, Agendamento agendamento) {
-
-        // 2. Validação Rápida
+        // 1. Validação de Token (Essencial)
         if (barbeiro.getTokenPushNotification() == null || barbeiro.getTokenPushNotification().isBlank()) {
-            log.warn("⚠️ Notificação ignorada: Barbeiro '{}' não possui token de push.", barbeiro.getNome());
+            log.debug("Notificação ignorada: Barbeiro '{}' (ID: {}) não possui token push cadastrado.",
+                    barbeiro.getNome(), barbeiro.getId());
             return;
         }
 
         try {
-            // 3. Formatação Humanizada
+            // 2. Construção da Mensagem
             String dataFormatada = agendamento.getDataHoraInicio().format(FORMATTER);
-
-            String titulo = "Novo Agendamento! ✂️";
-            String mensagem = String.format("Cliente %s agendou para %s",
+            String titulo = "✂️ Novo Agendamento!";
+            String mensagem = String.format("%s agendou: %s - %s",
                     agendamento.getCliente().getNome(),
+                    agendamento.getServico().getNome(),
                     dataFormatada);
 
-            log.info("🔔 Iniciando envio de Push para: {}", barbeiro.getNome());
-
-            // 4. Chamada Real (Simulada aqui, mas preparada para HTTP)
-            enviarRequestOneSignal(barbeiro.getTokenPushNotification(), titulo, mensagem);
-
-            log.info("✅ Push enviado com sucesso para {}", barbeiro.getNome());
+            // 3. Envio Real
+            enviarPushOneSignal(barbeiro.getTokenPushNotification(), titulo, mensagem);
 
         } catch (Exception e) {
-            // Como é Async, se der erro aqui, NINGUÉM fica sabendo se não tiver log.
-            log.error("❌ Erro ao enviar notificação para {}: {}", barbeiro.getNome(), e.getMessage());
+            // Log de erro sem quebrar a aplicação
+            log.error("Falha ao enviar push para {}: {}", barbeiro.getNome(), e.getMessage());
         }
     }
 
-    // Método privado para isolar a integração com API Externa
-    private void enviarRequestOneSignal(String token, String titulo, String mensagem) {
-        // AQUI entraria o RestTemplate ou WebClient
-        // Exemplo de log estruturado que facilitaria o debug:
-        log.debug("Payload OneSignal: { target: {}, title: {}, body: {} }", token, titulo, mensagem);
+    private void enviarPushOneSignal(String playerIds, String titulo, String mensagem) {
+        String url = "https://onesignal.com/api/v1/notifications";
 
-        // Simulação de delay de rede (para provar que o @Async é necessário)
-        try { Thread.sleep(100); } catch (InterruptedException e) {}
+        try {
+            // Montagem do Payload (JSON)
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("app_id", oneSignalAppId);
+            payload.put("include_player_ids", List.of(playerIds)); // Lista de destinatários
+
+            // Conteúdo (Suporta multilinguagem, aqui fixo PT/EN)
+            payload.put("headings", Map.of("en", titulo));
+            payload.put("contents", Map.of("en", mensagem));
+
+            // Dados extras (útil para abrir o app direto no agendamento)
+            payload.put("data", Map.of("tipo", "NOVO_AGENDAMENTO"));
+
+            // Headers de Autorização
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Basic " + oneSignalApiKey);
+
+            // Conversão para JSON String
+            String jsonBody = objectMapper.writeValueAsString(payload);
+
+            HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
+
+            // Disparo HTTP POST
+            restTemplate.postForObject(url, request, String.class);
+
+            log.info("Push enviado com sucesso para device: {}", playerIds);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erro na integração OneSignal: " + e.getMessage());
+        }
     }
 }

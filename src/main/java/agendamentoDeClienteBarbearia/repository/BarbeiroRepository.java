@@ -10,23 +10,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-@Repository
+// No arquivo BarbeiroRepository.java
 public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
+
     boolean existsByEmail(String email);
-
-    @Query("""
-    SELECT SUM(a.valorCobrado) 
-    FROM Agendamento a 
-    WHERE a.barbeiro.id = :idBarbeiro 
-    AND a.dataHoraInicio BETWEEN :inicio AND :fim
-    AND a.status = 'CONCLUIDO'
-""")
-    BigDecimal faturamentoTotal(Long idBarbeiro, LocalDateTime inicio, LocalDateTime fim);
     Optional<Barbeiro> findByEmail(String email);
-    // BarbeiroRepository.java
-    List<Barbeiro> findAllByTrabalhaComoBarbeiroTrue();
 
-    long countByDonoId(Long donoId);
+    // Busca customizada para o Multi-Tenancy
+    // Traz todos onde (dono_id = X) OU (id = X) -> Traz a equipe e o chefe
+    @Query("SELECT b FROM Barbeiro b WHERE (b.dono.id = :idDono OR b.id = :idDono) AND b.ativo = true")
+    List<Barbeiro> findAllByDonoIdOrId(Long idDono);
 
-    List<Barbeiro> findAllByAtivoTrue();
-    }
+    // Contagem para validar plano
+    long countByDonoId(Long idDono);
+}

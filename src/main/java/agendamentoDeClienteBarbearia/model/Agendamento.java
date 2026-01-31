@@ -1,55 +1,65 @@
 package agendamentoDeClienteBarbearia.model;
 
+
+
+import agendamentoDeClienteBarbearia.StatusAgendamento;
 import jakarta.persistence.*;
 import lombok.*;
-import agendamentoDeClienteBarbearia.StatusAgendamento;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "tb_agendamentos")
+@Table(name = "tb_agendamentos", indexes = {
+        @Index(name = "idx_agendamento_data_inicio", columnList = "dataHoraInicio"),
+        @Index(name = "idx_agendamento_barbeiro", columnList = "barbeiro_id"),
+        @Index(name = "idx_agendamento_cliente", columnList = "cliente_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(of = "id") // Performance: Compara apenas ID
+@ToString(exclude = {"barbeiro", "cliente", "servico"}) // Evita loop infinito no log
 public class Agendamento {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne // Vários agendamentos para um barbeiro
-    @JoinColumn(name = "barbeiro_id")
+    // Performance: FetchType.LAZY carrega o objeto apenas quando for usado (getBarbeiro)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "barbeiro_id", nullable = false)
     private Barbeiro barbeiro;
 
-    @ManyToOne
-    @JoinColumn(name = "cliente_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
-    @ManyToOne
-    @JoinColumn(name = "servico_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "servico_id", nullable = false)
     private Servico servico;
 
-    // A data e hora exata que começa
     @Column(nullable = false)
     private LocalDateTime dataHoraInicio;
 
-    // A data e hora exata que termina (calculado: inicio + tempo do serviço)
     @Column(nullable = false)
     private LocalDateTime dataHoraFim;
 
+    // Financeiro: Sempre BigDecimal (precisão 19,2 ou 19,4)
+    @Column(precision = 19, scale = 2)
     private BigDecimal valorCobrado;
 
-    // No arquivo: model/Agendamento.java
+    @Column(precision = 19, scale = 2)
+    private BigDecimal valorTotal;
 
-    private Double valorTotal;
-    private Double valorBarbeiro;
-    private Double valorCasa;
+    @Column(precision = 19, scale = 2)
+    private BigDecimal valorBarbeiro;
 
-// Gere Getters e Setters
+    @Column(precision = 19, scale = 2)
+    private BigDecimal valorCasa;
 
-    // Enum para status: AGENDADO, CANCELADO, FINALIZADO
     @Enumerated(EnumType.STRING)
+    @Column(length = 20, nullable = false)
     private StatusAgendamento status;
 }

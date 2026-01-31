@@ -11,11 +11,20 @@ import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO; // Importe o DTO c
 import jakarta.persistence.*;
 import lombok.*;
 
-@Table(name = "tb_clientes")
-@Entity(name = "Cliente")
+
+
+import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Table(name = "tb_clientes", indexes = {
+        @Index(name = "idx_cliente_email", columnList = "email"),
+        @Index(name = "idx_cliente_telefone", columnList = "telefone")
+})
 @Getter
 @Setter
-@NoArgsConstructor // Obrigatório para o JPA/Hibernate
+@NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(of = "id")
 public class Cliente {
@@ -24,14 +33,15 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 100)
     private String nome;
 
-    @Column(unique = true) // Aceita null, mas se tiver valor, deve ser único
+    @Column(unique = true, length = 150)
     private String email;
 
+    @Column(length = 20) // Telefone não precisa ser TEXT
     private String telefone;
 
-    // --- ADICIONE ESTE CONSTRUTOR ---
     public Cliente(CadastroClienteDTO dados) {
         this.nome = dados.nome();
         this.email = dados.email();

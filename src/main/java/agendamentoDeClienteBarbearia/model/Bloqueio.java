@@ -2,25 +2,36 @@ package agendamentoDeClienteBarbearia.model;
 
 
 
+
+
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Table(name = "tb_bloqueios")
-@Entity(name = "Bloqueio")
-@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Entity
+@Table(name = "tb_bloqueios", indexes = {
+        @Index(name = "idx_bloqueio_periodo", columnList = "inicio, fim")
+})
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class Bloqueio {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "barbeiro_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "barbeiro_id", nullable = false)
     private Barbeiro barbeiro;
 
+    @Column(nullable = false)
     private LocalDateTime inicio;
+
+    @Column(nullable = false)
     private LocalDateTime fim;
-    private String motivo; // Ex: "Almoço", "Médico"
+
+    @Column(length = 100)
+    private String motivo;
 }

@@ -1,24 +1,23 @@
 package agendamentoDeClienteBarbearia.controller;
 
 
+
+
 import agendamentoDeClienteBarbearia.dtos.LoginDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.TokenJWTData;
 import agendamentoDeClienteBarbearia.service.AutenticacaoService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class AutenticacaoController {
 
     private final AutenticacaoService service;
-
-    public AutenticacaoController(AutenticacaoService service) {
-        this.service = service;
-    }
 
     @PostMapping("/login")
     public ResponseEntity<TokenJWTData> efetuarLogin(@RequestBody @Valid LoginDTO dados) {

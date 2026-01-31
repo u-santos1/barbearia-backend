@@ -6,7 +6,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
+
+
+import agendamentoDeClienteBarbearia.model.Servico;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
 public interface ServicoRepository extends JpaRepository<Servico, Long> {
+
+    // Verifica se existe ignorando maiúsculas/minúsculas
+    // Essencial para não ter "Corte" e "corte" no banco
     boolean existsByNomeIgnoreCase(String nome);
+
+    // Traz apenas os ativos (Soft Delete)
     List<Servico> findAllByAtivoTrue();
 }

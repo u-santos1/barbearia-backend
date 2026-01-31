@@ -1,91 +1,136 @@
 package agendamentoDeClienteBarbearia.service;
 
-
+import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoClienteDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
-import jakarta.transaction.Transactional;
-import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
-import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import agendamentoDeClienteBarbearia.model.Cliente;
+import agendamentoDeClienteBarbearia.repository.ClienteRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j // Logs para monitoramento
 @Service
+@RequiredArgsConstructor // Injeção limpa via construtor
 public class ClienteService {
 
     private final ClienteRepository repository;
 
-    public ClienteService(ClienteRepository repository) {
-        this.repository = repository;
-    }
-
+    // ========================================================
+    // CADASTRAR OU ATUALIZAR (UPSERT INTELIGENTE)
+    // ========================================================
     @Transactional
     public DetalhamentoClienteDTO cadastrarOuAtualizar(CadastroClienteDTO dados) {
 
-        // Normaliza entradas (evita NullPointerException em strings vazias)
-        String emailInput = (dados.email() != null && !dados.email().isBlank()) ? dados.email().trim() : null;
-        String telefoneInput = dados.telefone().trim();
+        // 1. Sanitização (Limpeza de Dados)
+        // Remove espaços do email e coloca em minúsculo
+        String emailInput = (dados.email() != null && !dados.email().isBlank())
+                ? dados.email().trim().toLowerCase()
+                : null;
 
-        Cliente clienteFinal = null;
+        // Remove tudo que não for número do telefone (ex: (11) 9... vira 119...)
+        String telefoneInput = limparFormatacao(dados.telefone());
 
-        // 1. Tenta achar pelo E-mail (Prioridade Máxima: Identificador mais forte)
+        if (telefoneInput.isEmpty()) {
+            throw new RegraDeNegocioException("Telefone é obrigatório.");
+        }
+
+        // 2. Estratégia de Busca (Tentativa de Match)
+        Cliente clienteExistente = null;
+
+        // Prioridade A: Busca por Email (Identificador Forte)
         if (emailInput != null) {
-            clienteFinal = repository.findByEmail(emailInput).orElse(null);
+            clienteExistente = repository.findByEmail(emailInput).orElse(null);
         }
 
-        // 2. Se não achou pelo e-mail, tenta pelo telefone
-        if (clienteFinal == null) {
-            clienteFinal = repository.findByTelefone(telefoneInput).orElse(null);
+        // Prioridade B: Busca por Telefone (Se não achou por email)
+        if (clienteExistente == null) {
+            clienteExistente = repository.findByTelefone(telefoneInput).orElse(null);
         }
 
-        if (clienteFinal != null) {
-            // --- ATUALIZAÇÃO (UP) ---
-
-            // 🚨 BLINDAGEM DE CONFLITO:
-            // Se encontrei o cliente pelo telefone, mas ele mandou um e-mail novo...
-            // Preciso garantir que esse e-mail novo não é de OUTRA pessoa.
-            if (emailInput != null && !emailInput.equals(clienteFinal.getEmail())) {
-                boolean emailJaExiste = repository.existsByEmail(emailInput);
-                if (emailJaExiste) {
-                    throw new RegraDeNegocioException("Este e-mail já pertence a outro cliente cadastrado.");
-                }
-                clienteFinal.setEmail(emailInput);
-            }
-
-            clienteFinal.setNome(dados.nome());
-            clienteFinal.setTelefone(telefoneInput);
-
-            // O @Transactional salvará automaticamente (Dirty Checking),
-            // mas chamar o save() não faz mal e deixa explícito.
-            repository.save(clienteFinal);
-
+        // 3. Decisão: Criar ou Atualizar?
+        if (clienteExistente != null) {
+            log.info("Cliente existente encontrado (ID: {}). Atualizando dados...", clienteExistente.getId());
+            return atualizarCliente(clienteExistente, dados.nome(), emailInput, telefoneInput);
         } else {
-            // --- CRIAÇÃO (INSERT) ---
+            log.info("Novo cliente identificado. Criando cadastro...");
+            return criarCliente(dados.nome(), emailInput, telefoneInput);
+        }
+    }
 
-            // Verifica se o telefone já existe (caso raro de concorrência, mas bom validar)
-            if (repository.existsByTelefone(telefoneInput)) {
-                // Recupera o usuário para não duplicar (Fail-safe)
-                clienteFinal = repository.findByTelefone(telefoneInput).get();
-                return cadastrarOuAtualizar(dados); // Recursividade segura: tenta atualizar de novo
+    // --- Métodos Privados para Organização ---
+
+    private DetalhamentoClienteDTO atualizarCliente(Cliente cliente, String novoNome, String novoEmail, String novoTelefone) {
+        // Validação de Conflito de Email:
+        // Se o cliente mudou o email, verifica se esse novo email já não é de OUTRA pessoa.
+        if (novoEmail != null && !novoEmail.equals(cliente.getEmail())) {
+            boolean emailEmUso = repository.existsByEmail(novoEmail);
+            if (emailEmUso) {
+                throw new RegraDeNegocioException("Este e-mail já pertence a outro cliente.");
             }
-
-            clienteFinal = new Cliente(dados);
-            repository.save(clienteFinal);
+            cliente.setEmail(novoEmail);
         }
 
-        return new DetalhamentoClienteDTO(clienteFinal);
+        // Atualiza dados básicos
+        cliente.setNome(novoNome.trim());
+
+        // Se mudou o telefone, atualiza (Cuidado: validar se telefone já existe em outro ID seria bom aqui também)
+        cliente.setTelefone(novoTelefone);
+
+        // O JPA faz o update automático (Dirty Checking), mas save explícito é boa prática
+        repository.save(cliente);
+
+        return new DetalhamentoClienteDTO(cliente);
     }
+
+    private DetalhamentoClienteDTO criarCliente(String nome, String email, String telefone) {
+        // Validação Final (Fail-safe): Garante que o telefone não existe mesmo
+        // (Pode ter sido criado milissegundos atrás por outra request concorrente)
+        if (repository.existsByTelefone(telefone)) {
+            throw new RegraDeNegocioException("Telefone já cadastrado. Tente buscar o cliente novamente.");
+        }
+
+        Cliente novo = new Cliente();
+        novo.setNome(nome.trim());
+        novo.setEmail(email);
+        novo.setTelefone(telefone);
+
+        repository.save(novo);
+        return new DetalhamentoClienteDTO(novo);
+    }
+
+    // ========================================================
+    // LEITURAS (READ-ONLY PARA PERFORMANCE)
+    // ========================================================
+
+    @Transactional(readOnly = true)
     public Long buscarIdPorEmail(String email) {
-        return repository.findByEmail(email)
+        if (email == null || email.isBlank()) return null;
+
+        return repository.findByEmail(email.trim().toLowerCase())
                 .map(Cliente::getId)
-                .orElseThrow(() -> new RegraDeNegocioException("Email não encontrado"));
+                .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado com o email: " + email));
     }
+
+    @Transactional(readOnly = true)
     public List<DetalhamentoClienteDTO> listarTodos() {
+        // ⚠️ ALERTA DE PRODUÇÃO:
+        // Se tiver 50.000 clientes, isso trava o sistema.
+        // O ideal aqui seria usar paginação (Pageable).
+        // Mantive a lista para compatibilidade, mas considere mudar para findAll(Pageable).
         return repository.findAll().stream()
                 .map(DetalhamentoClienteDTO::new)
                 .toList();
     }
 
+    // Utilitário de Limpeza
+    private String limparFormatacao(String dado) {
+        if (dado == null) return "";
+        // Regex: Substitui tudo que NÃO for dígito (0-9) por vazio
+        return dado.replaceAll("\\D", "");
     }
+}
