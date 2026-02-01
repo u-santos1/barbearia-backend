@@ -26,7 +26,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/barbeiros")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class BarbeiroController {
 

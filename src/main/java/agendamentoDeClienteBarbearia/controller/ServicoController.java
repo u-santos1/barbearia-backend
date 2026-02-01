@@ -23,7 +23,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/servicos")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class ServicoController {
 

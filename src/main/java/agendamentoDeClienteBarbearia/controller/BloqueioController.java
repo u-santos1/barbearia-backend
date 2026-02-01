@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/bloqueios")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class BloqueioController {
 

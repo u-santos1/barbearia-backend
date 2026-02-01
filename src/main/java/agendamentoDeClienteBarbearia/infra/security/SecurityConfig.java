@@ -52,7 +52,7 @@ public class SecurityConfig {
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
                     // --- ESCRITA PÚBLICA (CADASTROS/LOGIN) ---
-                    req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll();
+                    req.requestMatchers("/auth/**").permitAll();
 
                     // Ajuste para bater com o novo Controller de Barbeiros
                     req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();

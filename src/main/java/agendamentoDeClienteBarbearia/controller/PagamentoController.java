@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/pagamentos")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class PagamentoController {
 

@@ -18,7 +18,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/agendamentos")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class AgendamentoController {
 
