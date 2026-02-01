@@ -53,7 +53,7 @@ public class SecurityFilter extends OncePerRequestFilter { // <--- Vem do starte
     private String recuperarToken(HttpServletRequest request) {
         var authorizationHeader = request.getHeader("Authorization");
         if (authorizationHeader != null) {
-            return authorizationHeader.replace("Bearer ", "");
+            return authorizationHeader.trim().substring(7); // Remove os primeiros 7 caracteres ("Bearer ")
         }
         return null;
     }
