@@ -33,32 +33,50 @@ public class SecurityConfig {
                 // 1. CORS & CSRF
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                
-                // 2. SESSÃO STATELESS (Obrigatório para JWT)
+
+                // 2. SESSÃO STATELESS
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                
+
                 // 3. AUTORIZAÇÃO DE ROTAS
                 .authorizeHttpRequests(req -> {
-                    // --- CORREÇÃO DE PREFLIGHT (CRÍTICO PARA VERCEL) ---
-                    // Garante que o navegador possa "perguntar" se a API está online antes de enviar dados
+                    // --- HEALTHCHECK (CRÍTICO PARA RAILWAY) ---
+                    // Libera a raiz para a Railway ver que o app está vivo
+                    req.requestMatchers("/").permitAll();
+                    req.requestMatchers("/actuator/**").permitAll(); // Se tiver actuator
+
+                    // --- PREFLIGHT (CORS) ---
                     req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+
+                    // --- DOCUMENTAÇÃO (SWAGGER/OPENAPI) ---
+                    // Se você usar Swagger no futuro, já deixa liberado
+                    req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
                     // --- ESCRITA PÚBLICA (CADASTROS/LOGIN) ---
                     req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();   
-                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll(); 
 
-                    // --- LEITURA PÚBLICA (CARREGAR TELA) ---
+                    // Ajuste para bater com o novo Controller de Barbeiros
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();
+
+                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();
+
+                    // Agendamento público (qualquer um pode marcar)
+                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll();
+
+                    // --- WEBHOOKS (MERCADO PAGO / PUSH) ---
+                    // Importante: Plataformas externas não têm token JWT, precisam de acesso livre
+                    req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
+
+                    // --- LEITURA PÚBLICA ---
                     req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/barbeiros").permitAll();
+                    // Libera listagem geral e busca de equipe
+                    req.requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll();
 
-                    // --- ÁREA RESTRITA (ADMIN/PAINEL) ---
+                    // --- TUDO O RESTO EXIGE LOGIN ---
                     req.anyRequest().authenticated();
                 })
-                
+
                 // 4. FILTRO DE TOKEN JWT
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
