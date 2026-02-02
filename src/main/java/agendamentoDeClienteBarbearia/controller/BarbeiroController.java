@@ -31,8 +31,8 @@ public class BarbeiroController {
 
     private final BarbeiroService service;
 
-    // 1. REGISTRO PÚBLICO (Cria a conta do Dono)
-    @PostMapping("/registro")
+
+    @PostMapping
     public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrarDono(@RequestBody @Valid CadastroBarbeiroDTO dados, UriComponentsBuilder uriBuilder) {
         Barbeiro barbeiro = service.cadastrarDono(dados);
         var dto = new DetalhamentoBarbeiroDTO(barbeiro);
@@ -41,9 +41,9 @@ public class BarbeiroController {
     }
 
     // 2. CADASTRO DE EQUIPE (Apenas Dono logado pode fazer)
+    // Esse continua igual, pois é uma rota interna
     @PostMapping("/equipe")
     public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrarFuncionario(@RequestBody @Valid CadastroBarbeiroDTO dados, UriComponentsBuilder uriBuilder) {
-        // Recupera ID do Dono logado
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Barbeiro dono = service.buscarPorEmail(email);
 
@@ -54,7 +54,7 @@ public class BarbeiroController {
         return ResponseEntity.created(uri).body(dto);
     }
 
-    // 3. LISTAR MINHA EQUIPE
+
     @GetMapping("/equipe")
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarEquipe() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
