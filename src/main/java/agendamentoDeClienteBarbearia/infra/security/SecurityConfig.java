@@ -39,36 +39,31 @@ public class SecurityConfig {
 
                 // 3. AUTORIZAÇÃO DE ROTAS
                 .authorizeHttpRequests(req -> {
-                    // --- HEALTHCHECK (CRÍTICO PARA RAILWAY) ---
-                    // Libera a raiz para a Railway ver que o app está vivo
-                    req.requestMatchers("/").permitAll();
-                    req.requestMatchers("/actuator/**").permitAll(); // Se tiver actuator
+                    // --- HEALTHCHECK & INFRA ---
+                    req.requestMatchers("/", "/error").permitAll(); // Adicionei /error aqui também pra evitar 403 em falhas
+                    req.requestMatchers("/actuator/**").permitAll();
 
                     // --- PREFLIGHT (CORS) ---
                     req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
 
-                    // --- DOCUMENTAÇÃO (SWAGGER/OPENAPI) ---
-                    // Se você usar Swagger no futuro, já deixa liberado
+                    // --- DOCUMENTAÇÃO ---
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
-                    // --- ESCRITA PÚBLICA (CADASTROS/LOGIN) ---
+                    // --- LOGIN ---
                     req.requestMatchers("/auth/**").permitAll();
 
-                    // Ajuste para bater com o novo Controller de Barbeiros
+                    // --- CADASTROS (ESCRITA PÚBLICA) ---
+                    // CORRIGIDO AQUI:
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
+                    // Mantemos esse por segurança caso tenha algum link antigo
                     req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();
 
                     req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();
-
-                    // Agendamento público (qualquer um pode marcar)
                     req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll();
-
-                    // --- WEBHOOKS (MERCADO PAGO / PUSH) ---
-                    // Importante: Plataformas externas não têm token JWT, precisam de acesso livre
                     req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
 
                     // --- LEITURA PÚBLICA ---
                     req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();
-                    // Libera listagem geral e busca de equipe
                     req.requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll();
