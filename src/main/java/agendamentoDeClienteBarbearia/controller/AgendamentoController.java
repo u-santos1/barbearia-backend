@@ -96,4 +96,19 @@ public class AgendamentoController {
         var relatorio = service.gerarRelatorioFinanceiro(inicio, fim);
         return ResponseEntity.ok(relatorio);
     }
+    // ... Mantenha os outros métodos
+
+    // 🚨 ESTE ERA O QUE FALTAVA PARA O FRONTEND
+    @GetMapping("/disponibilidade")
+    public ResponseEntity<List<String>> getDisponibilidade(
+            @RequestParam Long barbeiroId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data,
+            @RequestParam Long servicoId
+    ) {
+        // Chama o service para calcular
+        var horarios = service.consultarDisponibilidade(barbeiroId, data, servicoId);
+        return ResponseEntity.ok(horarios);
+    }
+
+// ... Mantenha o restante
 }

@@ -85,4 +85,17 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     List<Agendamento> findByDataHoraInicioBetweenAndStatus(LocalDateTime inicio,
                                                            LocalDateTime fim,
                                                            StatusAgendamento status);
+
+    @Query("""
+    SELECT a FROM Agendamento a 
+    WHERE a.barbeiro.id = :barbeiroId 
+    AND a.dataHoraInicio >= :inicio 
+    AND a.dataHoraInicio < :fim
+    AND a.status NOT IN ('CANCELADO_PELO_CLIENTE', 'CANCELADO_PELO_BARBEIRO')
+""")
+    List<Agendamento> findAgendamentosDoDia(
+            @Param("barbeiroId") Long barbeiroId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
 }

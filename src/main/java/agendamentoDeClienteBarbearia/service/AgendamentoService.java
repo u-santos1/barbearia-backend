@@ -285,4 +285,9 @@ public class AgendamentoService {
             log.error("Falha ao enviar notificação para o agendamento ID {}: {}", agendamento.getId(), e.getMessage());
         }
     }
+    @Transactional(readOnly = true)
+    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
+        // Apenas redireciona para o seu método existente que já faz a lógica certa
+        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
+    }
 }
