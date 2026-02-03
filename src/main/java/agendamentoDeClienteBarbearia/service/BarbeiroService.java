@@ -152,4 +152,13 @@ public class BarbeiroService {
         return repository.findByEmail(email)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
     }
+
+    // Adicione este método na classe BarbeiroService
+    @Transactional(readOnly = true)
+    public List<DetalhamentoBarbeiroDTO> listarTodosAtivos() {
+        // Busca todos que estão ativos no banco
+        return repository.findAllByAtivoTrue().stream()
+                .map(DetalhamentoBarbeiroDTO::new)
+                .toList();
+    }
 }

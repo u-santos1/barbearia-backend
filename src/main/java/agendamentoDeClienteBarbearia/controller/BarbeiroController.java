@@ -71,4 +71,9 @@ public class BarbeiroController {
         service.inativar(id, dono.getId());
         return ResponseEntity.noContent().build();
     }
+    @GetMapping
+    public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarBarbeiros() {
+        var lista = service.listarTodosAtivos();
+        return ResponseEntity.ok(lista);
+    }
 }

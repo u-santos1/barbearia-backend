@@ -23,4 +23,6 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
 
     // Contagem para validar plano
     long countByDonoId(Long idDono);
+
+    List<Barbeiro> findAllByAtivoTrue();
 }
