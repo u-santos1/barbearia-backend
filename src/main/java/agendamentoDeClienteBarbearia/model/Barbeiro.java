@@ -6,11 +6,13 @@ import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -65,6 +67,9 @@ public class Barbeiro implements UserDetails {
     private TipoPlano plano = TipoPlano.SOLO;
 
     private String tokenPushNotification;
+
+    @CreationTimestamp // Preenche a data/hora automaticamente ao salvar
+    private LocalDateTime createdAt;
 
     // Otimização: Authorities geralmente não mudam dinamicamente por request
     @Override

@@ -1,6 +1,5 @@
 package agendamentoDeClienteBarbearia.service;
 
-
 import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
@@ -15,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Slf4j // Logs para produção (Auditoria)
@@ -62,11 +63,26 @@ public class BarbeiroService {
         Barbeiro dono = repository.findById(idDono)
                 .orElseThrow(() -> new RegraDeNegocioException("Dono não encontrado"));
 
-        // 🚨 VALIDAÇÃO DO PLANO (CRÍTICO PARA O NEGÓCIO)
-        // Se for SOLO, não pode ter equipe.
-        if (dono.getPlano() == TipoPlano.SOLO) {
-            throw new RegraDeNegocioException("Seu plano atual (SOLO) não permite equipe. Faça o upgrade para o plano MULTI.");
+        // =====================================================================
+        // 🚨 LÓGICA SAAS: VALIDAÇÃO DE PLANO E PERÍODO DE TESTE
+        // =====================================================================
+
+        long diasDeUso = 0;
+
+        // Se o usuário tiver data de criação, calcula os dias.
+        // Se for antigo (null), assume 0 dias (libera o acesso para não travar legado).
+        if (dono.getCreatedAt() != null) {
+            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now());
         }
+
+        boolean aindaEstaEmTeste = diasDeUso <= 15;
+        boolean ehPlanoMulti = (dono.getPlano() == TipoPlano.MULTI);
+
+        // A REGRA: Bloqueia apenas se NÃO for Multi E JÁ TIVER passado dos 15 dias
+        if (!ehPlanoMulti && !aindaEstaEmTeste) {
+            throw new RegraDeNegocioException("Seu período de teste acabou e o plano SOLO não permite equipe. Faça o upgrade.");
+        }
+        // =====================================================================
 
         if (repository.existsByEmail(dados.email())) {
             throw new RegraDeNegocioException("Já existe um profissional com este e-mail no sistema.");
@@ -78,23 +94,21 @@ public class BarbeiroService {
         novo.setSenha(passwordEncoder.encode(dados.senha()));
         novo.setEspecialidade(dados.especialidade() != null ? dados.especialidade() : "Barbeiro");
 
-        // ⚠️ VINCULAÇÃO DE MULTI-TENANCY (ISOLAMENTO DE DADOS)
+        // VINCULAÇÃO (ISOLAMENTO DE DADOS)
         novo.setDono(dono);
 
         // Configurações do Funcionário
-        // Se o DTO não trouxer a info, assume que corta cabelo
         novo.setTrabalhaComoBarbeiro(dados.vaiCortarCabelo() != null ? dados.vaiCortarCabelo() : true);
 
-        // Financeiro Seguro (BigDecimal)
         if (dados.comissaoPorcentagem() != null) {
             novo.setComissaoPorcentagem(BigDecimal.valueOf(dados.comissaoPorcentagem()));
         } else {
-            novo.setComissaoPorcentagem(new BigDecimal("50.00")); // Padrão de mercado
+            novo.setComissaoPorcentagem(new BigDecimal("50.00")); // Padrão
         }
 
         novo.setPerfil(PerfilAcesso.BARBEIRO);
         novo.setAtivo(true);
-        novo.setPlano(TipoPlano.SOLO); // O funcionário herda o contexto do dono, o plano dele individual é irrelevante
+        novo.setPlano(TipoPlano.SOLO);
 
         return repository.save(novo);
     }
