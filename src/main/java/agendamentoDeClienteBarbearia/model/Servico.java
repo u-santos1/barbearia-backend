@@ -37,6 +37,10 @@ public class Servico {
     @Column(nullable = false)
     private Boolean ativo = true;
 
+    @ManyToOne
+    @JoinColumn(name = "dono_id")
+    private Barbeiro dono;
+
     public Servico(CadastroServicoDTO dados) {
         this.nome = dados.nome().trim();
         this.descricao = dados.descricao();

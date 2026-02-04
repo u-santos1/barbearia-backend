@@ -1,17 +1,14 @@
 package agendamentoDeClienteBarbearia.repository;
 
-import agendamentoDeClienteBarbearia.model.Barbeiro;
-import agendamentoDeClienteBarbearia.model.Servico;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
-
-
 
 import agendamentoDeClienteBarbearia.model.Servico;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+
+
+
+
 
 public interface ServicoRepository extends JpaRepository<Servico, Long> {
 
@@ -21,4 +18,10 @@ public interface ServicoRepository extends JpaRepository<Servico, Long> {
 
     // Traz apenas os ativos (Soft Delete)
     List<Servico> findAllByAtivoTrue();
+    List<Servico> findAllByDonoId(Long donoId);
+
+    boolean existsByNomeIgnoreCaseAndDonoId(String nome, Long donoId);
+
+    // ✅ ADICIONE PARA CORRIGIR O "findAllByDonoIdAndAtivoTrue":
+    List<Servico> findAllByDonoIdAndAtivoTrue(Long donoId);
 }

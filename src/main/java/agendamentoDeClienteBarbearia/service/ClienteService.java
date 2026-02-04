@@ -3,6 +3,7 @@ package agendamentoDeClienteBarbearia.service;
 import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoClienteDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Cliente;
 import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
+
 
 @Slf4j // Logs para monitoramento
 @Service
@@ -132,5 +133,25 @@ public class ClienteService {
         if (dado == null) return "";
         // Regex: Substitui tudo que NÃO for dígito (0-9) por vazio
         return dado.replaceAll("\\D", "");
+    }
+    // No ClienteService.java
+
+    // Método para listar convertendo para DTO
+    @Transactional(readOnly = true)
+    public List<DetalhamentoClienteDTO> listarPorDono(Long idDono) {
+        return repository.findAllByDonoId(idDono).stream()
+                .map(DetalhamentoClienteDTO::new)
+                .toList();
+    }
+
+    // Método de cadastro que já vincula ao dono logado (Sobrecarga)
+    @Transactional
+    public DetalhamentoClienteDTO cadastrarManual(CadastroClienteDTO dados, Barbeiro dono) {
+        // Aqui você chama sua lógica de salvar, mas setando o dono
+        var cliente = new Cliente(dados);
+        cliente.setDono(dono);
+        // ... restante da lógica de salvar ...
+        repository.save(cliente);
+        return new DetalhamentoClienteDTO(cliente);
     }
 }

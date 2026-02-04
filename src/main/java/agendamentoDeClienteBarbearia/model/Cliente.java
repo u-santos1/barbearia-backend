@@ -42,6 +42,10 @@ public class Cliente {
     @Column(length = 20) // Telefone não precisa ser TEXT
     private String telefone;
 
+    @ManyToOne
+    @JoinColumn(name = "dono_id")
+    private Barbeiro dono;
+
     public Cliente(CadastroClienteDTO dados) {
         this.nome = dados.nome();
         this.email = dados.email();

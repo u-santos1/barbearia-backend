@@ -200,9 +200,13 @@ public class AgendamentoService {
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarTodos() {
-        // AVISO: Em produção real, isso precisa de Paginação (Pageable)
-        return agendamentoRepository.findAll().stream()
+    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailLogado) {
+        Barbeiro usuario = barbeiroRepository.findByEmail(emailLogado).get();
+        Long idDono = (usuario.getDono() != null) ? usuario.getDono().getId() : usuario.getId();
+
+        // No Repository crie: findAllByBarbeiroDonoId(Long idDono)
+        // Ou filtre os barbeiros que pertencem a esse dono e busque os agendamentos deles
+        return agendamentoRepository.findAllByBarbeiroDonoId(idDono).stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
     }
