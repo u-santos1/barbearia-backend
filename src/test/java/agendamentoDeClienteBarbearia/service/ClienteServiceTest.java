@@ -35,11 +35,7 @@ class ClienteServiceTest {
         // ARRANGE
         // CORREÇÃO AQUI: Verifique a ordem no seu DTO.
         // Vou assumir que é (Nome, Telefone, Email) baseado no erro.
-        CadastroClienteDTO dadosInput = new CadastroClienteDTO(
-                "Wesley",
-                "21999999999",      // Telefone primeiro?
-                "wesley@email.com"  // Email depois?
-        );
+        CadastroClienteDTO dadosInput = new CadastroClienteDTO("João", "21999999999", "joao@email.com", null);
 
         // Se o seu DTO for (Nome, Email, Telefone), me avise, pois aí o erro seria outro.
 
@@ -69,7 +65,7 @@ class ClienteServiceTest {
         clienteNoBanco.setTelefone("21999999999");
 
         // Email é NULL aqui
-        CadastroClienteDTO dadosNovos = new CadastroClienteDTO("Wesley Novo", "21999999999", null);
+        CadastroClienteDTO dadosNovos = new CadastroClienteDTO("João", "21999999999", "joao@email.com", null);
 
         // --- CORREÇÃO ---
         // REMOVIDO: when(repository.findByEmail(any())).thenReturn(Optional.empty());
