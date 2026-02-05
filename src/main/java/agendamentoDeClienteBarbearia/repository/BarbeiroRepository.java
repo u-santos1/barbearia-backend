@@ -14,17 +14,24 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
 
     Optional<Barbeiro> findByEmail(String email);
 
-    // Busca interna para validações
+    // Busca interna genérica
     List<Barbeiro> findAllByAtivoTrue();
 
-    // Contagem para limitar planos (SaaS)
+    // Contagem para validar plano
     long countByDonoId(Long idDono);
 
-    // ✅ QUERY CORRIGIDA (SaaS Public View)
-    // Busca:
-    // 1. O próprio Dono (b.id = :lojaId)
-    // 2. OU Funcionários desse Dono (b.dono.id = :lojaId)
-    // 3. E garante que apenas os ATIVOS apareçam
+    // =========================================================================
+    // 1. QUERY ANTIGA (USADA PELO SERVICE / listarEquipe)
+    // =========================================================================
+    // O erro estava reclamando da falta DESTE método:
+    @Query("SELECT b FROM Barbeiro b WHERE (b.dono.id = :idDono OR b.id = :idDono) AND b.ativo = true")
+    List<Barbeiro> findAllByDonoIdOrId(@Param("idDono") Long idDono);
+
+    // =========================================================================
+    // 2. QUERY NOVA (USADA PELO CONTROLLER / listarBarbeiros público)
+    // =========================================================================
+    // Basicamente faz a mesma coisa, mas mantivemos nomes separados para organizar
     @Query("SELECT b FROM Barbeiro b WHERE (b.id = :lojaId OR b.dono.id = :lojaId) AND b.ativo = true")
     List<Barbeiro> findAllByLoja(@Param("lojaId") Long lojaId);
+
 }
