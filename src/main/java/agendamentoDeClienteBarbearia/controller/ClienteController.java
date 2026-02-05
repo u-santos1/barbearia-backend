@@ -23,14 +23,33 @@ public class ClienteController {
 
     private final ClienteService service;
     private final BarbeiroService barbeiroService;
-    // ❌ REMOVIDO: private final ClienteRepository repository; (Controller não toca em Repository)
+    private final agendamentoDeClienteBarbearia.repository.BarbeiroRepository barbeiroRepository;
+
 
     @PostMapping
     public ResponseEntity<DetalhamentoClienteDTO> cadastrar(@RequestBody @Valid CadastroClienteDTO dados) {
-        // 1. Identifica quem está cadastrando (Contexto SaaS)
-        Barbeiro dono = getDonoLogado();
+        Barbeiro dono;
 
-        // 2. Passa o dono para o serviço vincular o cliente corretamente
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean estaLogado = auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser");
+
+        if (estaLogado) {
+            // Cenário 1: Logado (Pega do Token)
+            dono = getDonoLogado();
+        } else {
+            // Cenário 2: Público (Pega do ID enviado no JSON)
+            if (dados.barbeiroId() == null) {
+                throw new RegraDeNegocioException("Erro: Identificação da barbearia é obrigatória.");
+            }
+
+            // ✅ CORREÇÃO AQUI: Usamos o Repository para pegar a ENTIDADE (que tem .getDono())
+            var barbeiroSelecionado = barbeiroRepository.findById(dados.barbeiroId())
+                    .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
+
+            // Agora funciona porque é uma Entidade JPA
+            dono = (barbeiroSelecionado.getDono() != null) ? barbeiroSelecionado.getDono() : barbeiroSelecionado;
+        }
+
         var dto = service.cadastrarManual(dados, dono);
 
         var uri = ServletUriComponentsBuilder.fromCurrentRequest()
