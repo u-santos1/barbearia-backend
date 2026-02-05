@@ -54,6 +54,7 @@ public class SecurityConfig {
 
                     // --- CADASTROS (ESCRITA PÚBLICA) ---
                     // CORRIGIDO AQUI:
+                    req.requestMatchers(HttpMethod.GET, "/servicos/barbeiro/**").permitAll(); // ✅ LIBERA SERVIÇOS
                     req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
                     // Mantemos esse por segurança caso tenha algum link antigo
                     req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();

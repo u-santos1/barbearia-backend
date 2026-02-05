@@ -51,4 +51,9 @@ public class ServicoController {
         service.excluir(id);
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/barbeiro/{idBarbeiro}")
+    public ResponseEntity<List<DetalhamentoServicoDTO>> listarParaAgendamento(@PathVariable Long idBarbeiro) {
+        var lista = service.listarPorBarbeiro(idBarbeiro);
+        return ResponseEntity.ok(lista);
+    }
 }

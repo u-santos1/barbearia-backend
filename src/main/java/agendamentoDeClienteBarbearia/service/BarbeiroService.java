@@ -161,4 +161,9 @@ public class BarbeiroService {
                 .map(DetalhamentoBarbeiroDTO::new)
                 .toList();
     }
+    public DetalhamentoBarbeiroDTO buscarPorId(Long id) {
+        return repository.findById(id)
+                .map(DetalhamentoBarbeiroDTO::new) // ✅ Converte aqui
+                .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado com o ID: " + id));
+    }
 }

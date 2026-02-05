@@ -1,11 +1,11 @@
 package agendamentoDeClienteBarbearia.service;
 
-
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Servico;
+import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.repository.ServicoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,16 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-
-import java.util.List;
-
 @Slf4j // Logs automáticos via Lombok
 @Service
 @RequiredArgsConstructor // Injeção de dependência via construtor (Best Practice)
 public class ServicoService {
 
     private final ServicoRepository repository;
-    private final BarbeiroService barbeiroService; // ✅ Injetado para identificar o dono logado
+    private final BarbeiroService barbeiroService;       // Usado para identificar usuário logado
+    private final BarbeiroRepository barbeiroRepository; // ✅ Usado para buscar entidade crua (fix getDono)
 
     // ========================================================
     // 1. CADASTRAR (CREATE) - COM ISOLAMENTO DE DADOS
@@ -110,7 +108,7 @@ public class ServicoService {
     }
 
     // ========================================================
-    // 4. LISTAGEM (READ ONLY) - FILTRADA POR DONO
+    // 4. LISTAGEM (READ ONLY) - FILTRADA POR DONO (PAINEL ADMIN)
     // ========================================================
     @Transactional(readOnly = true)
     public List<DetalhamentoServicoDTO> listarAtivos() {
@@ -124,11 +122,28 @@ public class ServicoService {
 
     @Transactional(readOnly = true)
     public DetalhamentoServicoDTO buscarPorId(Long id) {
-        // O buscarPorId pode ser mais flexível se for usado no agendamento pelo cliente,
-        // mas para gestão interna, idealmente também validaria o dono.
         var servico = repository.findById(id)
                 .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
         return new DetalhamentoServicoDTO(servico);
+    }
+
+    // ========================================================
+    // 5. LISTAGEM PÚBLICA (AGENDAMENTO PELO CLIENTE)
+    // ========================================================
+    @Transactional(readOnly = true)
+    public List<DetalhamentoServicoDTO> listarPorBarbeiro(Long idBarbeiro) {
+        // ✅ CORREÇÃO CRÍTICA:
+        // Usamos o REPOSITORY aqui, pois precisamos da Entidade Barbeiro completa
+        // para acessar o método .getDono(). Se usássemos o Service, receberíamos um DTO.
+        var barbeiro = barbeiroRepository.findById(idBarbeiro)
+                .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
+
+        // Lógica de herança do SaaS (Dono vs Funcionário)
+        Long idDono = (barbeiro.getDono() != null) ? barbeiro.getDono().getId() : barbeiro.getId();
+
+        return repository.findAllByDonoIdAndAtivoTrue(idDono).stream()
+                .map(DetalhamentoServicoDTO::new)
+                .toList();
     }
 
     // ========================================================
@@ -137,12 +152,15 @@ public class ServicoService {
     private Barbeiro getDonoLogado() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            // Aqui usamos o service pois precisamos apenas identificar o usuário pelo email
+            // (Assumindo que buscarPorEmail retorna entidade ou é tratado internamente)
             Barbeiro usuario = barbeiroService.buscarPorEmail(email);
 
             // Se quem logou for funcionário, retorna o patrão (Dono)
             // Se quem logou for o patrão, retorna ele mesmo
             return (usuario.getDono() != null) ? usuario.getDono() : usuario;
         } catch (Exception e) {
+            log.error("Erro ao identificar usuário logado", e);
             throw new RegraDeNegocioException("Não foi possível identificar o usuário logado.");
         }
     }
