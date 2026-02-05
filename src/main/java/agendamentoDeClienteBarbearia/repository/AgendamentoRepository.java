@@ -98,4 +98,12 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
             @Param("inicio") LocalDateTime inicio,
             @Param("fim") LocalDateTime fim
     );
+
+    @Query("""
+        SELECT a FROM Agendamento a 
+        WHERE a.barbeiro.dono.id = :donoId 
+        OR a.barbeiro.id = :donoId
+        ORDER BY a.dataHoraInicio DESC
+    """)
+    List<Agendamento> findAllByBarbeiroDonoId(@Param("donoId") Long donoId);
 }

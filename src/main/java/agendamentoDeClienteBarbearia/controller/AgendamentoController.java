@@ -43,9 +43,15 @@ public class AgendamentoController {
     }
 
     // ADMIN - LISTAR TODOS (Paginação recomendada em produção)
+    // ADMIN - LISTAR TODOS (Filtrado por Dono - SaaS)
     @GetMapping("/admin/todos")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos() {
-        return ResponseEntity.ok(service.listarTodos());
+        // 1. Pega o email do usuário logado no sistema
+        String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. Chama o serviço passando o email para ele filtrar a barbearia correta
+        // OBS: Certifique-se que no Service o nome do método é 'listarTodosDoDono'
+        return ResponseEntity.ok(service.listarTodosDoDono(emailLogado));
     }
 
     @GetMapping("/cliente/{clienteId}")

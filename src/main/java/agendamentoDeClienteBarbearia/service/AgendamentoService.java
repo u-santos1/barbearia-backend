@@ -204,8 +204,7 @@ public class AgendamentoService {
         Barbeiro usuario = barbeiroRepository.findByEmail(emailLogado).get();
         Long idDono = (usuario.getDono() != null) ? usuario.getDono().getId() : usuario.getId();
 
-        // No Repository crie: findAllByBarbeiroDonoId(Long idDono)
-        // Ou filtre os barbeiros que pertencem a esse dono e busque os agendamentos deles
+
         return agendamentoRepository.findAllByBarbeiroDonoId(idDono).stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
