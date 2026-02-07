@@ -34,4 +34,7 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     @Query("SELECT b FROM Barbeiro b WHERE (b.id = :lojaId OR b.dono.id = :lojaId) AND b.ativo = true")
     List<Barbeiro> findAllByLoja(@Param("lojaId") Long lojaId);
 
+    @Query("SELECT b FROM Barbeiro b WHERE b.dono.id = :donoId AND b.ativo = true")
+    List<Barbeiro> findAllByDonoId(@Param("donoId") Long donoId);
+
 }
