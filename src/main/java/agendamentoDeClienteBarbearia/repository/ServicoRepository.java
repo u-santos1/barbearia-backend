@@ -9,27 +9,28 @@ import java.util.List;
 public interface ServicoRepository extends JpaRepository<Servico, Long> {
 
     // ========================================================================
-    // 1. MÉTODOS PARA O FRONTEND (HOME E AGENDAMENTO)
+    // 1. MÉTODOS PARA O FRONTEND
     // ========================================================================
 
-    // ✅ CORREÇÃO: Mudamos 's.barbeiro.id' para 's.dono.id' porque é assim que está na Entidade.
+    // Busca serviços de um barbeiro específico (ex: João da Barbearia do Pedro)
+    // Aqui usamos s.dono.id se o "barbeiroId" for o dono, mas se for funcionário...
+    // Na verdade, no seu sistema atual, s.dono aponta para o CHEFE.
+    // Vamos manter essa query simples focada no Dono por enquanto para garantir estabilidade.
     @Query("SELECT s FROM Servico s WHERE s.dono.id = :barbeiroId")
     List<Servico> findAllByBarbeiroId(@Param("barbeiroId") Long barbeiroId);
 
-    // ✅ CORREÇÃO: Mudamos 's.barbeiro.loja' para 's.dono.loja'.
-    @Query("SELECT s FROM Servico s WHERE s.dono.loja.id = :lojaId")
+    // ✅ CORREÇÃO FINAL: O 'lojaId' na verdade é o ID do DONO.
+    // Então a query é idêntica à de cima, mas semânticamente para "Loja".
+    @Query("SELECT s FROM Servico s WHERE s.dono.id = :lojaId")
     List<Servico> findAllByLojaId(@Param("lojaId") Long lojaId);
 
-
     // ========================================================================
-    // 2. MÉTODOS PARA O SERVICO SERVICE
+    // 2. MÉTODOS DE SERVIÇO INTERNO
     // ========================================================================
 
-    // Verifica duplicidade usando o campo 'dono'
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Servico s WHERE LOWER(s.nome) = LOWER(:nome) AND s.dono.id = :donoId")
     boolean existsByNomeIgnoreCaseAndDonoId(@Param("nome") String nome, @Param("donoId") Long donoId);
 
-    // Busca serviços ativos usando o campo 'dono'
     @Query("SELECT s FROM Servico s WHERE s.dono.id = :donoId AND s.ativo = true")
     List<Servico> findAllByDonoIdAndAtivoTrue(@Param("donoId") Long donoId);
 }

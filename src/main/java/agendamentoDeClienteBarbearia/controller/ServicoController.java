@@ -10,18 +10,11 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-
-
-
-
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
-
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/servicos")
@@ -62,22 +55,22 @@ public class ServicoController {
     @GetMapping
     public ResponseEntity<List<DetalhamentoServicoDTO>> listar(
             @RequestParam(required = false) Long barbeiroId,
-            @RequestParam(required = false) Long lojaId // ✅ NOVO PARÂMETRO
+            @RequestParam(required = false) Long lojaId
     ) {
         List<Servico> servicos;
 
         if (barbeiroId != null) {
-            // Busca por barbeiro
+            // Se passar ID de barbeiro, tenta buscar por ele
             servicos = repository.findAllByBarbeiroId(barbeiroId);
         } else if (lojaId != null) {
-            // ✅ Busca por loja (NOVA LÓGICA)
+            // ✅ CORREÇÃO: Agora busca filtrado pelo ID do Dono (Loja)
+            // O repositório agora sabe que lojaId = donoId
             servicos = repository.findAllByLojaId(lojaId);
         } else {
-            // Busca tudo (padrão)
+            // Se não passar nada, traz tudo (mas idealmente deve-se evitar isso em produção)
             servicos = repository.findAll();
         }
 
-        // Converte para DTO e retorna
         var lista = servicos.stream().map(DetalhamentoServicoDTO::new).toList();
         return ResponseEntity.ok(lista);
     }
