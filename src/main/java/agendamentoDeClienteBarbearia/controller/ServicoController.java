@@ -3,6 +3,8 @@ package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
 
+import agendamentoDeClienteBarbearia.model.Servico;
+import agendamentoDeClienteBarbearia.repository.ServicoRepository;
 import agendamentoDeClienteBarbearia.service.ServicoService;
 import jakarta.validation.Valid;
 
@@ -27,6 +29,7 @@ import java.util.List;
 public class ServicoController {
 
     private final ServicoService service;
+    private ServicoRepository repository;
 
     @PostMapping
     public ResponseEntity<DetalhamentoServicoDTO> cadastrar(@RequestBody @Valid CadastroServicoDTO dados, UriComponentsBuilder uriBuilder) {
@@ -54,6 +57,28 @@ public class ServicoController {
     @GetMapping("/barbeiro/{idBarbeiro}")
     public ResponseEntity<List<DetalhamentoServicoDTO>> listarParaAgendamento(@PathVariable Long idBarbeiro) {
         var lista = service.listarPorBarbeiro(idBarbeiro);
+        return ResponseEntity.ok(lista);
+    }
+    @GetMapping
+    public ResponseEntity<List<DetalhamentoServicoDTO>> listar(
+            @RequestParam(required = false) Long barbeiroId,
+            @RequestParam(required = false) Long lojaId // ✅ NOVO PARÂMETRO
+    ) {
+        List<Servico> servicos;
+
+        if (barbeiroId != null) {
+            // Busca por barbeiro
+            servicos = repository.findAllByBarbeiroId(barbeiroId);
+        } else if (lojaId != null) {
+            // ✅ Busca por loja (NOVA LÓGICA)
+            servicos = repository.findAllByLojaId(lojaId);
+        } else {
+            // Busca tudo (padrão)
+            servicos = repository.findAll();
+        }
+
+        // Converte para DTO e retorna
+        var lista = servicos.stream().map(DetalhamentoServicoDTO::new).toList();
         return ResponseEntity.ok(lista);
     }
 }
