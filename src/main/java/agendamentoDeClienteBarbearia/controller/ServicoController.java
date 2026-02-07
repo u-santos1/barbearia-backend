@@ -1,20 +1,17 @@
 package agendamentoDeClienteBarbearia.controller;
 
-
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
-
+import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
 import agendamentoDeClienteBarbearia.model.Servico;
 import agendamentoDeClienteBarbearia.repository.ServicoRepository;
 import agendamentoDeClienteBarbearia.service.ServicoService;
 import jakarta.validation.Valid;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
-import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.List;
 
 @RestController
 @RequestMapping("/servicos")
@@ -22,7 +19,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class ServicoController {
 
     private final ServicoService service;
-    private ServicoRepository repository;
+    // O 'final' é obrigatório para o @RequiredArgsConstructor injetar o repositório
+    private final ServicoRepository repository;
 
     @PostMapping
     public ResponseEntity<DetalhamentoServicoDTO> cadastrar(@RequestBody @Valid CadastroServicoDTO dados, UriComponentsBuilder uriBuilder) {
@@ -37,21 +35,21 @@ public class ServicoController {
         return ResponseEntity.ok(dto);
     }
 
-    @GetMapping
-    public ResponseEntity<List<DetalhamentoServicoDTO>> listar() {
-        return ResponseEntity.ok(service.listarAtivos());
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(@PathVariable Long id) {
         service.excluir(id);
         return ResponseEntity.noContent().build();
     }
+
+    // Método Legado (Para compatibilidade com agendamento antigo)
     @GetMapping("/barbeiro/{idBarbeiro}")
     public ResponseEntity<List<DetalhamentoServicoDTO>> listarParaAgendamento(@PathVariable Long idBarbeiro) {
         var lista = service.listarPorBarbeiro(idBarbeiro);
         return ResponseEntity.ok(lista);
     }
+
+    // ✅ ÚNICO MÉTODO LISTAR (GET /servicos)
+    // Ele resolve tanto a listagem geral quanto os filtros da Home
     @GetMapping
     public ResponseEntity<List<DetalhamentoServicoDTO>> listar(
             @RequestParam(required = false) Long barbeiroId,
@@ -60,14 +58,13 @@ public class ServicoController {
         List<Servico> servicos;
 
         if (barbeiroId != null) {
-            // Se passar ID de barbeiro, tenta buscar por ele
+            // Filtra por barbeiro
             servicos = repository.findAllByBarbeiroId(barbeiroId);
         } else if (lojaId != null) {
-            // ✅ CORREÇÃO: Agora busca filtrado pelo ID do Dono (Loja)
-            // O repositório agora sabe que lojaId = donoId
+            // Filtra por loja (Dono)
             servicos = repository.findAllByLojaId(lojaId);
         } else {
-            // Se não passar nada, traz tudo (mas idealmente deve-se evitar isso em produção)
+            // Sem filtro: retorna todos
             servicos = repository.findAll();
         }
 
