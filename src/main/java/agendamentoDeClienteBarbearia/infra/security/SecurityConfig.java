@@ -34,51 +34,54 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
 
-                // 2. SESSÃO STATELESS
+                // 2. SESSÃO STATELESS (REST API)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // 3. AUTORIZAÇÃO DE ROTAS
                 .authorizeHttpRequests(req -> {
-                    // --- HEALTHCHECK & INFRA ---
-                    req.requestMatchers("/", "/error").permitAll(); // Adicionei /error aqui também pra evitar 403 em falhas
+                    // --- HEALTHCHECK & INFRA (Railway/Actuator) ---
+                    req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
                     req.requestMatchers("/actuator/**").permitAll();
 
                     // --- PREFLIGHT (CORS) ---
+                    // Libera requisições OPTIONS (necessário para o navegador verificar permissões)
                     req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
 
-                    // --- DOCUMENTAÇÃO ---
+                    // --- DOCUMENTAÇÃO (Swagger) ---
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
-                    // --- LOGIN ---
+                    // --- LOGIN (Barbeiro/Admin) ---
                     req.requestMatchers("/auth/**").permitAll();
 
-                    // --- CADASTROS (ESCRITA PÚBLICA) ---
-                    // CORRIGIDO AQUI:
-                    req.requestMatchers(HttpMethod.GET, "/servicos/barbeiro/**").permitAll(); // ✅ LIBERA SERVIÇOS
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
-                    // Mantemos esse por segurança caso tenha algum link antigo
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();
-
-                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
-
-                    // --- LEITURA PÚBLICA ---
-                    req.requestMatchers(HttpMethod.GET, "/servicos").permitAll();
+                    // --- LEITURA PÚBLICA (Cliente acessa sem login) ---
+                    // Adicionei "/**" no final para garantir que sub-rotas e query params passem
+                    req.requestMatchers(HttpMethod.GET, "/servicos/**").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade").permitAll();
+                    req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade/**").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll();
 
-                    // --- TUDO O RESTO EXIGE LOGIN ---
+                    // --- ESCRITA PÚBLICA (Cliente agenda/cadastra) ---
+                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();
+                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll();
+
+                    // Webhook de pagamento (Se tiver)
+                    req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
+
+                    // Cadastro de Barbeiro (Geralmente público para novos cadastros)
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();
+
+                    // --- TUDO O RESTO EXIGE TOKEN JWT ---
                     req.anyRequest().authenticated();
                 })
 
-                // 4. FILTRO DE TOKEN JWT
+                // 4. FILTRO DE TOKEN
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
     // --- BEANS DE AUTENTICAÇÃO ---
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
@@ -90,17 +93,21 @@ public class SecurityConfig {
     }
 
     // --- CONFIGURAÇÃO DE CORS (GLOBAL) ---
+    // Isso é vital para o Frontend (Vercel/Localhost) conversar com o Backend
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // IMPORTANTE: 'addAllowedOriginPattern("*")' é melhor que 'setAllowedOrigins("*")'
-        // pois permite credenciais (allowCredentials=true) funcionar com wildcard.
-        // Isso libera Localhost, Vercel Production e Vercel Preview.
+        // Permite qualquer origem (Frontend)
         configuration.addAllowedOriginPattern("*");
 
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        // Métodos permitidos
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
+
+        // Cabeçalhos permitidos (Authorization, Content-Type, etc)
         configuration.setAllowedHeaders(List.of("*"));
+
+        // Permite credenciais/cookies (Importante para alguns navegadores)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
