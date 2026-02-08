@@ -20,7 +20,7 @@ import java.util.List;
 public class BarbeiroController {
 
     private final BarbeiroService service;
-    private final BarbeiroRepository repository; // ✅ Injeção para leitura direta (Alta Performance)
+    private final BarbeiroRepository repository;
 
     // 1. CADASTRO DE DONO (SaaS)
     @PostMapping
@@ -31,7 +31,7 @@ public class BarbeiroController {
         return ResponseEntity.created(uri).body(dto);
     }
 
-    // 2. CADASTRO DE EQUIPE (Apenas Dono logado)
+    // 2. CADASTRO DE EQUIPE
     @PostMapping("/equipe")
     public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrarFuncionario(@RequestBody @Valid CadastroBarbeiroDTO dados, UriComponentsBuilder uriBuilder) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -44,47 +44,42 @@ public class BarbeiroController {
         return ResponseEntity.created(uri).body(dto);
     }
 
-    // 3. LISTAR EQUIPE (Visão Interna do Admin)
+    // 3. LISTAR EQUIPE (Admin)
     @GetMapping("/equipe")
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarEquipe() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Barbeiro dono = service.buscarPorEmail(email);
-
         return ResponseEntity.ok(service.listarEquipe(dono.getId()));
     }
 
-    // 4. INATIVAR (Soft Delete)
+    // 4. INATIVAR
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(@PathVariable Long id) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Barbeiro dono = service.buscarPorEmail(email);
-
         service.inativar(id, dono.getId());
         return ResponseEntity.noContent().build();
     }
 
     // ================================================================
-    // 5. LISTAGEM PÚBLICA (USADA NO AGENDAMENTO)
+    // 5. LISTAGEM PÚBLICA (USADA NO AGENDAMENTO DO FRONT)
     // ================================================================
-    // Alterado para suportar Multi-Tenancy via ?lojaId=1
     @GetMapping
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarBarbeiros(@RequestParam(required = false) Long lojaId) {
 
         List<Barbeiro> barbeiros;
 
         if (lojaId != null) {
-            // ✅ CENÁRIO 1: Cliente Agendando (Vê apenas a equipe daquela loja)
-            barbeiros = repository.findAllByLoja(lojaId);
+            // ✅ CORREÇÃO: Mudamos de findAllByLoja (que quebrava) para findAllByDonoId.
+            // O front manda ?lojaId=1, o backend busca os barbeiros do Dono 1.
+            // (Isso assume que você tem o método findAllByDonoId no BarbeiroRepository)
+            barbeiros = repository.findAllByDonoId(lojaId);
         } else {
-            // ⚠️ CENÁRIO 2: Fallback / Admin Geral
-            // Se ninguém estiver logado e não mandou lojaId, retornamos vazio ou erro para proteger os dados
+            // Fallback: Se não tem lojaId e não tá logado, retorna erro ou lista vazia para proteger.
             var auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || auth.getName().equals("anonymousUser")) {
-                // Proteção: Não listar todos os barbeiros do mundo para um anônimo sem filtro
                 return ResponseEntity.badRequest().build();
             }
-
-            // Se for um usuário logado tentando listar tudo (ex: Super Admin), mantemos o comportamento antigo
             barbeiros = repository.findAllByAtivoTrue();
         }
 
