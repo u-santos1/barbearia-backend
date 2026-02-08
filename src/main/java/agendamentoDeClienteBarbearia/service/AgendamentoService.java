@@ -1,7 +1,7 @@
 package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.StatusAgendamento;
-import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO; // ✅ Usando o DTO que você mandou
+import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
@@ -28,7 +28,7 @@ public class AgendamentoService {
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
 
-    // Opcionais (Descomente se já tiver as classes)
+    // Opcionais
     // private final BloqueioRepository bloqueioRepository;
     // private final NotificacaoService notificacaoService;
 
@@ -37,8 +37,9 @@ public class AgendamentoService {
     private static final int HORARIO_FECHAMENTO = 23;
     private static final int INTERVALO_AGENDA_MINUTOS = 30;
 
+    // ✅ AJUSTE 1: Nome deve ser 'agendar' para bater com o Controller
     @Transactional
-    public DetalhamentoAgendamentoDTO cadastrar(AgendamentoDTO dados) {
+    public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
         log.info("Iniciando agendamento para Cliente ID: {}", dados.clienteId());
 
         // 1. Validar Barbeiro
@@ -49,7 +50,7 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("Este barbeiro não está atendendo no momento.");
         }
 
-        // 2. Validar Cliente (Agora é obrigatório existir no banco)
+        // 2. Validar Cliente
         Cliente cliente = clienteRepository.findById(dados.clienteId())
                 .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado. Realize o cadastro antes."));
 
@@ -82,7 +83,8 @@ public class AgendamentoService {
         agendamento.setDataHoraFim(dataFim);
         agendamento.setStatus(StatusAgendamento.AGENDADO);
 
-        // Observação não vem no DTO simples, deixamos em branco ou null
+        // Se o seu DTO AgendamentoDTO não tem o campo observacao, mantenha null.
+        // Se você adicionou 'String observacao' no DTO, mude para: dados.observacao()
         agendamento.setObservacao(null);
 
         // Financeiro
@@ -100,6 +102,12 @@ public class AgendamentoService {
 
     @Transactional
     public void cancelar(Long id) { alterarStatus(id, StatusAgendamento.CANCELADO_PELO_CLIENTE); }
+
+    // ✅ AJUSTE 2: Adicionado método que faltava para o Controller
+    @Transactional
+    public void cancelarPeloBarbeiro(Long id) {
+        alterarStatus(id, StatusAgendamento.CANCELADO_PELO_BARBEIRO);
+    }
 
     @Transactional
     public void confirmar(Long id) { alterarStatus(id, StatusAgendamento.CONFIRMADO); }
@@ -173,7 +181,6 @@ public class AgendamentoService {
 
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailLogado) {
-        // Implementação simplificada
         return agendamentoRepository.findAll().stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
@@ -227,8 +234,6 @@ public class AgendamentoService {
         for (Agendamento ag : agendamentos) {
             if (slotInicio.isBefore(ag.getDataHoraFim()) && slotFim.isAfter(ag.getDataHoraInicio())) return false;
         }
-        // Se tiver bloqueios:
-        // for (Bloqueio b : bloqueios) { ... }
         return true;
     }
 
