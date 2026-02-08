@@ -1,14 +1,5 @@
 package agendamentoDeClienteBarbearia.repository;
 
-import agendamentoDeClienteBarbearia.model.Agendamento;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-
-
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.model.Agendamento;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,8 +12,54 @@ import java.util.List;
 public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> {
 
     // ========================================================================
-    // VALIDAÇÃO DE CONFLITO (CRÍTICO)
+    // 1. MÉTODOS ESSENCIAIS PARA O AGENDAMENTO SERVICE
     // ========================================================================
+
+    // Usado para verificar disponibilidade no Service
+    List<Agendamento> findByBarbeiroIdAndDataHoraInicioBetween(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim);
+
+    // Relatório Financeiro
+    List<Agendamento> findByDataHoraInicioBetweenAndStatus(LocalDateTime inicio, LocalDateTime fim, StatusAgendamento status);
+
+    // ========================================================================
+    // 2. CONSULTAS OTIMIZADAS (JOIN FETCH) - PARA EVITAR ERRO DE N+1
+    // ========================================================================
+
+    // Histórico do Cliente
+    @Query("""
+        SELECT a FROM Agendamento a
+        JOIN FETCH a.barbeiro
+        JOIN FETCH a.servico
+        WHERE a.cliente.id = :clienteId
+        ORDER BY a.dataHoraInicio DESC
+    """)
+    List<Agendamento> findByClienteIdOrderByDataHoraInicioDesc(@Param("clienteId") Long clienteId);
+
+    // Histórico do Barbeiro
+    @Query("""
+        SELECT a FROM Agendamento a
+        JOIN FETCH a.cliente
+        JOIN FETCH a.servico
+        WHERE a.barbeiro.id = :barbeiroId
+        ORDER BY a.dataHoraInicio DESC
+    """)
+    List<Agendamento> findByBarbeiroIdOrderByDataHoraInicioDesc(@Param("barbeiroId") Long barbeiroId);
+
+    // ========================================================================
+    // 3. VISÃO DO DONO (SAAS)
+    // ========================================================================
+    @Query("""
+        SELECT a FROM Agendamento a 
+        WHERE a.barbeiro.dono.id = :donoId 
+        OR a.barbeiro.id = :donoId
+        ORDER BY a.dataHoraInicio DESC
+    """)
+    List<Agendamento> findAllByBarbeiroDonoId(@Param("donoId") Long donoId);
+
+    // ========================================================================
+    // 4. MÉTODOS LEGADOS/EXTRAS (Mantidos para compatibilidade se necessário)
+    // ========================================================================
+
     @Query("""
         SELECT COUNT(a) > 0 
         FROM Agendamento a 
@@ -36,74 +73,4 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     boolean existeConflitoDeHorario(@Param("barbeiroId") Long barbeiroId,
                                     @Param("inicioSolicitado") LocalDateTime inicioSolicitado,
                                     @Param("fimSolicitado") LocalDateTime fimSolicitado);
-
-    // ========================================================================
-    // CONSULTAS OTIMIZADAS (COM JOIN FETCH PARA EVITAR N+1)
-    // ========================================================================
-
-    // Busca histórico do cliente (Traz Barbeiro e Serviço junto)
-    @Query("""
-        SELECT a FROM Agendamento a
-        JOIN FETCH a.barbeiro
-        JOIN FETCH a.servico
-        WHERE a.cliente.id = :clienteId
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findByClienteIdOrderByDataHoraInicioDesc(@Param("clienteId") Long clienteId);
-
-    // Busca histórico do barbeiro "Meus Agendamentos" (Traz Cliente e Serviço junto)
-    @Query("""
-        SELECT a FROM Agendamento a
-        JOIN FETCH a.cliente
-        JOIN FETCH a.servico
-        WHERE a.barbeiro.id = :barbeiroId
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findByBarbeiroIdOrderByDataHoraInicioDesc(@Param("barbeiroId") Long barbeiroId);
-
-    // Agenda do dia (Visualização Calendário) - Otimizada
-    @Query("""
-        SELECT a FROM Agendamento a 
-        JOIN FETCH a.cliente 
-        JOIN FETCH a.servico 
-        WHERE a.barbeiro.id = :id 
-        AND a.dataHoraInicio BETWEEN :inicio AND :fim
-        AND a.status NOT IN ('CANCELADO_PELO_CLIENTE', 'CANCELADO_PELO_BARBEIRO')
-    """)
-    List<Agendamento> findAgendaDoDia(@Param("id") Long id,
-                                      @Param("inicio") LocalDateTime inicio,
-                                      @Param("fim") LocalDateTime fim);
-
-    // Método simples para uso interno (sem fetch pesado se não precisar)
-    List<Agendamento> findByBarbeiroIdAndDataHoraInicioBetween(Long idBarbeiro, LocalDateTime inicio, LocalDateTime fim);
-
-    // ========================================================================
-    // RELATÓRIOS
-    // ========================================================================
-
-    // Usado no Relatório Financeiro (AgendamentoService)
-    List<Agendamento> findByDataHoraInicioBetweenAndStatus(LocalDateTime inicio,
-                                                           LocalDateTime fim,
-                                                           StatusAgendamento status);
-
-    @Query("""
-    SELECT a FROM Agendamento a 
-    WHERE a.barbeiro.id = :barbeiroId 
-    AND a.dataHoraInicio >= :inicio 
-    AND a.dataHoraInicio < :fim
-    AND a.status NOT IN ('CANCELADO_PELO_CLIENTE', 'CANCELADO_PELO_BARBEIRO')
-""")
-    List<Agendamento> findAgendamentosDoDia(
-            @Param("barbeiroId") Long barbeiroId,
-            @Param("inicio") LocalDateTime inicio,
-            @Param("fim") LocalDateTime fim
-    );
-
-    @Query("""
-        SELECT a FROM Agendamento a 
-        WHERE a.barbeiro.dono.id = :donoId 
-        OR a.barbeiro.id = :donoId
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findAllByBarbeiroDonoId(@Param("donoId") Long donoId);
 }
