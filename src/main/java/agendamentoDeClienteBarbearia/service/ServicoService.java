@@ -65,6 +65,7 @@ public class ServicoService {
 
         String novoNome = dados.nome().trim();
 
+        // Verifica se mudou o nome E se o novo nome já existe
         if (!servico.getNome().equalsIgnoreCase(novoNome) &&
                 repository.existsByNomeIgnoreCaseAndDonoId(novoNome, dono.getId())) {
             throw new RegraDeNegocioException("Você já tem outro serviço com este nome.");
@@ -74,7 +75,6 @@ public class ServicoService {
         servico.setPreco(dados.preco());
         servico.setDescricao(dados.descricao());
         servico.setDuracaoEmMinutos(dados.duracaoEmMinutos());
-        // repository.save(servico); // O Transactional já salva, mas pode deixar explícito se quiser
 
         return new DetalhamentoServicoDTO(servico);
     }
@@ -93,9 +93,8 @@ public class ServicoService {
             throw new RegraDeNegocioException("Acesso negado.");
         }
 
-        // ✅ FIX: Em vez de chamar servico.excluir() ou repository.delete(),
-        // alteramos explicitamente o status para FALSE.
-        // Isso impede o erro de Foreign Key (Erro 500) quando já existem agendamentos.
+        // ✅ FIX CRÍTICO: Soft Delete
+        // Não apaga o registro, apenas esconde. Isso evita o erro de chave estrangeira (Erro 500).
         servico.setAtivo(false);
 
         log.info("Serviço ID {} inativado (Soft Delete) pelo Dono ID {}.", id, dono.getId());
@@ -105,8 +104,10 @@ public class ServicoService {
     // 4. LISTAGEM (READ ONLY) - FILTRADA POR DONO
     // ========================================================
     @Transactional(readOnly = true)
-    public List<DetalhamentoServicoDTO> listarAtivos() {
+    // ⚠️ Renomeei de 'listarAtivos' para 'listarMeusServicos' para bater com seu Controller
+    public List<DetalhamentoServicoDTO> listarMeusServicos() {
         Barbeiro dono = getDonoLogado();
+        // Só retorna os ativos, então o item excluído some da lista
         return repository.findAllByDonoIdAndAtivoTrue(dono.getId()).stream()
                 .map(DetalhamentoServicoDTO::new)
                 .toList();
