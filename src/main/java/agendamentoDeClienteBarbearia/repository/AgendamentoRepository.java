@@ -11,6 +11,18 @@ import java.util.List;
 
 public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> {
 
+    @Query("""
+        SELECT a FROM Agendamento a 
+        JOIN FETCH a.cliente 
+        JOIN FETCH a.servico 
+        WHERE a.barbeiro.id = :barbeiroId 
+        AND a.dataHoraInicio BETWEEN :inicio AND :fim
+        AND a.status NOT IN ('CANCELADO_PELO_CLIENTE', 'CANCELADO_PELO_BARBEIRO')
+    """)
+    List<Agendamento> findAgendaDoDia(@Param("barbeiroId") Long barbeiroId,
+                                      @Param("inicio") LocalDateTime inicio,
+                                      @Param("fim") LocalDateTime fim);
+
     // ========================================================================
     // 1. MÉTODOS ESSENCIAIS PARA O AGENDAMENTO SERVICE
     // ========================================================================

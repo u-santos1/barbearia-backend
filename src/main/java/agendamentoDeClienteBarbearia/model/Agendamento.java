@@ -59,6 +59,9 @@ public class Agendamento {
     @Column(precision = 19, scale = 2)
     private BigDecimal valorCasa;
 
+    @Column(length = 500)
+    private String observacao;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private StatusAgendamento status;
