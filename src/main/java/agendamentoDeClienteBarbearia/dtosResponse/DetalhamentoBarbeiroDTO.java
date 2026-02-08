@@ -1,10 +1,5 @@
 package agendamentoDeClienteBarbearia.dtosResponse;
 
-
-import agendamentoDeClienteBarbearia.model.Barbeiro;
-
-
-
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 
 public record DetalhamentoBarbeiroDTO(
@@ -12,16 +7,18 @@ public record DetalhamentoBarbeiroDTO(
         String nome,
         String email,
         String especialidade,
-        DetalhamentoBarbeiroDTO dono
+        Boolean ativo,
+        Long donoId // ✅ Mudamos de Objeto para ID para evitar Erro 500 (Recursão Infinita)
 ) {
     public DetalhamentoBarbeiroDTO(Barbeiro barbeiro) {
         this(
                 barbeiro.getId(),
                 barbeiro.getNome(),
                 barbeiro.getEmail(),
-                // "Geral" soa mais profissional que "Barbeiro" como default
                 barbeiro.getEspecialidade() != null ? barbeiro.getEspecialidade() : "Barbeiro",
-                barbeiro.getDono() != null ? new DetalhamentoBarbeiroDTO(barbeiro.getDono()) : null
+                barbeiro.getAtivo(),
+                // Se tiver dono, pega o ID. Se não, é null (caso do próprio dono)
+                barbeiro.getDono() != null ? barbeiro.getDono().getId() : null
         );
     }
 }

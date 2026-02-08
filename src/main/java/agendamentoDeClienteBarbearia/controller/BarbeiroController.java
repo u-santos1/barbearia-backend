@@ -3,7 +3,6 @@ package agendamentoDeClienteBarbearia.controller;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
-import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.service.BarbeiroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +19,8 @@ import java.util.List;
 public class BarbeiroController {
 
     private final BarbeiroService service;
-    private final BarbeiroRepository repository;
 
-    // 1. CADASTRO DE DONO (SaaS)
+    // 1. CADASTRO DE DONO
     @PostMapping
     public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrarDono(@RequestBody @Valid CadastroBarbeiroDTO dados, UriComponentsBuilder uriBuilder) {
         Barbeiro barbeiro = service.cadastrarDono(dados);
@@ -38,13 +36,12 @@ public class BarbeiroController {
         Barbeiro dono = service.buscarPorEmail(email);
 
         Barbeiro novoFuncionario = service.cadastrarFuncionario(dados, dono.getId());
-
         var dto = new DetalhamentoBarbeiroDTO(novoFuncionario);
         var uri = uriBuilder.path("/barbeiros/{id}").buildAndExpand(dto.id()).toUri();
         return ResponseEntity.created(uri).body(dto);
     }
 
-    // 3. LISTAR EQUIPE (Admin)
+    // 3. LISTAR EQUIPE (ADMIN)
     @GetMapping("/equipe")
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarEquipe() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -64,29 +61,10 @@ public class BarbeiroController {
     // ================================================================
     // 5. LISTAGEM PÚBLICA (USADA NO AGENDAMENTO DO FRONT)
     // ================================================================
+    // ✅ CORREÇÃO: Agora usa o Service.listarPorLoja que trata tudo corretamente
     @GetMapping
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarBarbeiros(@RequestParam(required = false) Long lojaId) {
-
-        List<Barbeiro> barbeiros;
-
-        if (lojaId != null) {
-            // ✅ CORREÇÃO: Mudamos de findAllByLoja (que quebrava) para findAllByDonoId.
-            // O front manda ?lojaId=1, o backend busca os barbeiros do Dono 1.
-            // (Isso assume que você tem o método findAllByDonoId no BarbeiroRepository)
-            barbeiros = repository.findAllByDonoId(lojaId);
-        } else {
-            // Fallback: Se não tem lojaId e não tá logado, retorna erro ou lista vazia para proteger.
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || auth.getName().equals("anonymousUser")) {
-                return ResponseEntity.badRequest().build();
-            }
-            barbeiros = repository.findAllByAtivoTrue();
-        }
-
-        var dtos = barbeiros.stream()
-                .map(DetalhamentoBarbeiroDTO::new)
-                .toList();
-
-        return ResponseEntity.ok(dtos);
+        var lista = service.listarPorLoja(lojaId);
+        return ResponseEntity.ok(lista);
     }
 }
