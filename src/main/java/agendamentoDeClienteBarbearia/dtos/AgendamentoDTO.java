@@ -12,5 +12,6 @@ public record AgendamentoDTO(
         @NotNull Long barbeiroId,
         @NotNull Long clienteId,
         @NotNull Long servicoId,
-        @NotNull @Future LocalDateTime dataHoraInicio // O único horário que importa na entrada
+        @NotNull @Future LocalDateTime dataHoraInicio, // O único horário que importa na entrada
+        String observacao
 ) {}
