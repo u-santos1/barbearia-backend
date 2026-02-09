@@ -53,6 +53,13 @@ public class SecurityConfig {
                     // --- LOGIN (Barbeiro/Admin) ---
                     req.requestMatchers("/auth/**").permitAll();
 
+                    req.requestMatchers("/auth/**").permitAll();
+                    req.requestMatchers(HttpMethod.POST, "/login").permitAll();      // <--- O ERRO 403 ERA AQUI
+                    req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll(); // <--- E AQUI
+
+                    req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
+                    req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
+
                     // --- LEITURA PÚBLICA (Cliente acessa sem login) ---
                     // Adicionei "/**" no final para garantir que sub-rotas e query params passem
                     req.requestMatchers(HttpMethod.GET, "/servicos/**").permitAll();

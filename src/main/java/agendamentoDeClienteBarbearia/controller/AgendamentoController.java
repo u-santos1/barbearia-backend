@@ -116,5 +116,4 @@ public class AgendamentoController {
         return ResponseEntity.ok(horarios);
     }
 
-// ... Mantenha o restante
 }
