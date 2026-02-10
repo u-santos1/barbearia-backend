@@ -36,7 +36,6 @@ public class Cliente {
     @Column(nullable = false, length = 100)
     private String nome;
 
-    @Column(unique = true, length = 150)
     private String email;
 
     @Column(length = 20) // Telefone não precisa ser TEXT
