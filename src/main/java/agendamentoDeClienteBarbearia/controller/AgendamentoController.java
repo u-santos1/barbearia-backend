@@ -1,6 +1,7 @@
 package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
+import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 
@@ -9,7 +10,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -114,6 +117,17 @@ public class AgendamentoController {
         // Chama o service para calcular
         var horarios = service.consultarDisponibilidade(barbeiroId, data, servicoId);
         return ResponseEntity.ok(horarios);
+    }
+
+    @PostMapping("/bloqueio")
+    public ResponseEntity<Void> criarBloqueio(
+            @RequestBody @Valid BloqueioDTO dados,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        service.bloquearHorario(userDetails.getUsername(), dados);
+
+        // Retorna 204 (No Content) pois a ação foi executada com sucesso e não precisa devolver dados
+        return ResponseEntity.noContent().build();
     }
 
 }

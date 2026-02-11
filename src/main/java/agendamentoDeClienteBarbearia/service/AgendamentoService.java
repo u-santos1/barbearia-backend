@@ -2,11 +2,13 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
+import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.*;
 import agendamentoDeClienteBarbearia.repository.*;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,10 +29,9 @@ public class AgendamentoService {
     private final BarbeiroRepository barbeiroRepository;
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
+    private final AgendamentoRepository repository;
 
-    // Opcionais
-    // private final BloqueioRepository bloqueioRepository;
-    // private final NotificacaoService notificacaoService;
+
 
     // Horário flexível (06h às 23h) para não travar o dono
     private static final int HORARIO_ABERTURA = 6;
@@ -243,5 +244,52 @@ public class AgendamentoService {
         } catch (Exception e) {
             log.error("Erro na notificação: {}", e.getMessage());
         }
+    }
+    @Transactional
+    public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
+        // 1. Validação de Coerência Temporal
+        if (!dados.isHorarioValido()) {
+            throw new IllegalArgumentException("A hora final deve ser posterior à hora inicial.");
+        }
+
+        // 2. Busca o Profissional
+        Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
+                .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
+
+        // 3. DEFESA CRÍTICA: Verifica colisão de horário (Overlap)
+        boolean horarioOcupado = repository.existeConflitoDeHorario(
+                emailBarbeiro,
+                dados.dataHoraInicio(),
+                dados.dataHoraFim()
+        );
+
+        if (horarioOcupado) {
+            throw new IllegalStateException("Já existe um agendamento ou bloqueio neste intervalo de tempo.");
+        }
+
+        // 4. Montagem da Entidade de Bloqueio
+        Agendamento bloqueio = new Agendamento();
+        bloqueio.setBarbeiro(barbeiro);
+        bloqueio.setDataHoraInicio(dados.dataHoraInicio());
+        bloqueio.setDataHoraFim(dados.dataHoraFim());
+
+        // Identificação visual no sistema
+        bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
+
+        // Tratamento de Status (Crie este ENUM se não tiver, ou use uma String constante)
+        bloqueio.setStatus(StatusAgendamento.BLOQUEADO); // Ou "BLOQUEADO" se for String
+
+        // 5. Tratamento Financeiro (Zeragem)
+        // Isso impede que o bloqueio apareça como "R$ 0,00" pendente no caixa
+        bloqueio.setValorCobrado(BigDecimal.ZERO);
+        bloqueio.setValorTotal(BigDecimal.ZERO);
+        bloqueio.setValorBarbeiro(BigDecimal.ZERO);
+        bloqueio.setValorCasa(BigDecimal.ZERO);
+
+        // 6. Tratamento de Nulos (Para funcionar com sua Entidade alterada)
+        bloqueio.setCliente(null);
+        bloqueio.setServico(null);
+
+        repository.save(bloqueio);
     }
 }

@@ -33,13 +33,12 @@ public class Agendamento {
     private Barbeiro barbeiro;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = false)
+    @JoinColumn(name = "cliente_id", nullable = true) // Mudou aqui
     private Cliente cliente;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "servico_id", nullable = false)
+    @JoinColumn(name = "servico_id", nullable = true) // Mudou aqui
     private Servico servico;
-
     @Column(nullable = false)
     private LocalDateTime dataHoraInicio;
 

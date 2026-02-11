@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.repository;
 
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.model.Agendamento;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -85,4 +86,15 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     boolean existeConflitoDeHorario(@Param("barbeiroId") Long barbeiroId,
                                     @Param("inicioSolicitado") LocalDateTime inicioSolicitado,
                                     @Param("fimSolicitado") LocalDateTime fimSolicitado);
+
+    @Query("""
+    SELECT COUNT(a) > 0 FROM Agendamento a 
+    WHERE a.barbeiro.email = :email 
+    AND a.status != 'CANCELADO'
+    AND (a.dataHoraInicio < :fim AND a.dataHoraFim > :inicio)
+""")
+    boolean existeConflitoDeHorario(
+            @Param("email") String emailBarbeiro,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim);
 }
