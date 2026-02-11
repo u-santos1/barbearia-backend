@@ -4,6 +4,7 @@ package agendamentoDeClienteBarbearia.model;
 
 import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
+import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -71,6 +72,13 @@ public class Barbeiro implements UserDetails {
     @CreationTimestamp // Preenche a data/hora automaticamente ao salvar
     private LocalDateTime createdAt;
 
+    private String barbeariaNome;
+    private String corPrimaria;
+    private String imagemFundo;
+    private String whatsappContato;
+    private String instagramUrl;
+    private String mensagemOla;
+
     // Otimização: Authorities geralmente não mudam dinamicamente por request
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -96,4 +104,25 @@ public class Barbeiro implements UserDetails {
 
     @Override
     public boolean isEnabled() { return ativo; }
+    // Dentro de Barbeiro.java
+    public void atualizarInformacoes(AtualizacaoBarbeiroDTO dados) {
+        if (dados.barbeariaNome() != null && !dados.barbeariaNome().isBlank()) {
+            this.barbeariaNome = dados.barbeariaNome();
+        }
+        if (dados.corPrimaria() != null) {
+            this.corPrimaria = dados.corPrimaria();
+        }
+        if (dados.imagemFundo() != null) {
+            this.imagemFundo = dados.imagemFundo();
+        }
+        if (dados.whatsappContato() != null) {
+            this.whatsappContato = dados.whatsappContato();
+        }
+        if (dados.instagramUrl() != null) {
+            this.instagramUrl = dados.instagramUrl();
+        }
+        if (dados.mensagemOla() != null) {
+            this.mensagemOla = dados.mensagemOla();
+        }
+    }
 }

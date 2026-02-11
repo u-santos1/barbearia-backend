@@ -2,11 +2,13 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
+import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -123,5 +125,17 @@ public class BarbeiroService {
     public Barbeiro buscarPorEmail(String email) {
         return repository.findByEmail(email)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
+    }
+    @Transactional
+    public DetalhamentoBarbeiroDTO atualizarPerfil(String email, AtualizacaoBarbeiroDTO dados) {
+        // Busca a entidade e a coloca no estado "Managed" do JPA
+        var barbeiro = repository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+
+        // Delegação da lógica de atualização para a própria Entidade (Encapsulamento)
+        barbeiro.atualizarInformacoes(dados);
+
+        // Não é necessário chamar repository.save() explicitamente devido ao @Transactional
+        return new DetalhamentoBarbeiroDTO(barbeiro);
     }
 }

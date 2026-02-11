@@ -1,5 +1,6 @@
 package agendamentoDeClienteBarbearia.controller;
 
+import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
@@ -7,7 +8,9 @@ import agendamentoDeClienteBarbearia.service.BarbeiroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -66,5 +69,16 @@ public class BarbeiroController {
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarBarbeiros(@RequestParam(required = false) Long lojaId) {
         var lista = service.listarPorLoja(lojaId);
         return ResponseEntity.ok(lista);
+    }
+
+    @PutMapping("/meus-dados")
+    public ResponseEntity<DetalhamentoBarbeiroDTO> atualizarPerfil(
+            @RequestBody @Valid AtualizacaoBarbeiroDTO dados,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        // Uso de @AuthenticationPrincipal para obter o usuário logado de forma elegante
+        var response = service.atualizarPerfil(userDetails.getUsername(), dados);
+
+        return ResponseEntity.ok(response);
     }
 }
