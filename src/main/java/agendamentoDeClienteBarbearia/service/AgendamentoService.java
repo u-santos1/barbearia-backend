@@ -315,38 +315,29 @@ public class AgendamentoService {
 
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
         try {
-            log.info("Buscando agendamentos para o telefone: {}", telefone);
+            log.info("Iniciando busca otimizada para o telefone: {}", telefone);
 
-            return agendamentoRepository.findAll().stream()
-                    // 1. Filtro de Cliente (Blindado)
-                    .filter(a -> a.getCliente() != null &&
-                            a.getCliente().getTelefone() != null &&
-                            a.getCliente().getTelefone().contains(telefone))
+            // Busca apenas o que importa direto no banco de dados
+            var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, LocalDateTime.now());
 
-                    // 2. Filtro de Data e Status (Blindado)
-                    .filter(a -> a.getDataHoraInicio() != null &&
-                            a.getDataHoraInicio().isAfter(LocalDateTime.now()))
-
-                    .filter(a -> a.getStatus() != null &&
-                            a.getStatus() != StatusAgendamento.CANCELADO &&
-                            a.getStatus() != StatusAgendamento.CANCELADO_PELO_CLIENTE &&
-                            a.getStatus() != StatusAgendamento.BLOQUEADO) // Ignora bloqueios adm
-
-                    // 3. Conversão para DTO
+            return agendamentos.stream()
                     .map(a -> {
                         try {
+                            // Verificação defensiva antes de instanciar o DTO
+                            if (a.getServico() == null || a.getBarbeiro() == null) return null;
                             return new DetalhamentoAgendamentoDTO(a);
                         } catch (Exception e) {
-                            log.error("Erro ao converter agendamento ID {} para DTO", a.getId());
+                            log.error("Falha ao mapear agendamento ID {}: {}", a.getId(), e.getMessage());
                             return null;
                         }
                     })
-                    .filter(dto -> dto != null) // Remove qualquer DTO que falhou na conversão
+                    .filter(dto -> dto != null)
                     .toList();
 
         } catch (Exception e) {
-            log.error("Erro crítico na busca por telefone: ", e);
-            throw new RegraDeNegocioException("Erro interno ao processar sua agenda. Tente novamente mais tarde.");
+            log.error("Erro na busca de agendamentos por telefone: ", e);
+            // Sênior tip: Retorne lista vazia para o cliente não ver erro técnico (Status 200 com [])
+            return new ArrayList<>();
         }
     }
 }

@@ -97,4 +97,19 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
             @Param("email") String emailBarbeiro,
             @Param("inicio") LocalDateTime inicio,
             @Param("fim") LocalDateTime fim);
+
+    @Query("""
+    SELECT a FROM Agendamento a 
+    WHERE a.cliente.telefone LIKE %:telefone% 
+    AND a.dataHoraInicio > :agora 
+    AND a.status NOT IN (
+        agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO, 
+        agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO_PELO_CLIENTE, 
+        agendamentoDeClienteBarbearia.StatusAgendamento.BLOQUEADO
+    )
+""")
+    List<Agendamento> buscarAgendamentosAtivosPorTelefone(
+            @Param("telefone") String telefone,
+            @Param("agora") LocalDateTime agora
+    );
 }
