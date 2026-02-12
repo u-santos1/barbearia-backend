@@ -129,5 +129,20 @@ public class AgendamentoController {
         // Retorna 204 (No Content) pois a ação foi executada com sucesso e não precisa devolver dados
         return ResponseEntity.noContent().build();
     }
+    // Rota para o cliente consultar a própria agenda pelo telefone
+    @GetMapping("/cliente")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarPorTelefone(@RequestParam String telefone) {
+        // Remove formatação (ex: (11) 9999 -> 119999)
+        String telLimpo = telefone.replaceAll("\\D", "");
+        var lista = service.buscarPorTelefoneCliente(telLimpo);
+        return ResponseEntity.ok(lista);
+    }
+
+    // Rota para o cliente cancelar (Validação simples)
+    @DeleteMapping("/cliente/{id}")
+    public ResponseEntity<Void> cancelarPeloCliente(@PathVariable Long id) {
+        service.cancelar(id); // Chama aquele método cancelar() que define CANCELADO_PELO_CLIENTE
+        return ResponseEntity.noContent().build();
+    }
 
 }

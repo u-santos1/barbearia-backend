@@ -11,8 +11,11 @@ import agendamentoDeClienteBarbearia.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -107,7 +110,24 @@ public class AgendamentoService {
     // ✅ AJUSTE 2: Adicionado método que faltava para o Controller
     @Transactional
     public void cancelarPeloBarbeiro(Long id) {
-        alterarStatus(id, StatusAgendamento.CANCELADO_PELO_BARBEIRO);
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
+
+        // =================================================================================
+        // LÓGICA HÍBRIDA (SENIOR PATTERN)
+        // =================================================================================
+
+        // CENÁRIO A: É um Bloqueio Administrativo (Sem Cliente)
+        // Ação: Excluir fisicamente do banco para liberar a vaga imediatamente e limpar a sujeira.
+        if (agendamento.getCliente() == null) {
+            agendamentoRepository.delete(agendamento);
+            return; // Encerra aqui para não tentar salvar depois
+        }
+
+        // CENÁRIO B: É um Cliente Real
+        // Ação: Mudar status para manter no histórico que o barbeiro cancelou.
+        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_BARBEIRO);
+        agendamentoRepository.save(agendamento);
     }
 
     @Transactional
@@ -291,5 +311,15 @@ public class AgendamentoService {
         bloqueio.setServico(null);
 
         repository.save(bloqueio);
+    }
+
+    public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
+        // Busca apenas agendamentos futuros e não cancelados
+        return repository.findAll().stream() // Idealmente usar @Query no repository para performance
+                .filter(a -> a.getCliente() != null && a.getCliente().getTelefone().contains(telefone))
+                .filter(a -> a.getDataHoraInicio().isAfter(LocalDateTime.now())) // Só futuros
+                .filter(a -> a.getStatus() != StatusAgendamento.CANCELADO && a.getStatus() != StatusAgendamento.CANCELADO_PELO_CLIENTE)
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
     }
 }
