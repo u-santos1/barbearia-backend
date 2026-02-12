@@ -32,7 +32,7 @@ public class AgendamentoService {
     private final BarbeiroRepository barbeiroRepository;
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
-    private final AgendamentoRepository repository;
+
 
 
 
@@ -277,7 +277,7 @@ public class AgendamentoService {
                 .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
 
         // 3. DEFESA CRÍTICA: Verifica colisão de horário (Overlap)
-        boolean horarioOcupado = repository.existeConflitoDeHorario(
+        boolean horarioOcupado = agendamentoRepository.existeConflitoDeHorario(
                 emailBarbeiro,
                 dados.dataHoraInicio(),
                 dados.dataHoraFim()
@@ -310,19 +310,43 @@ public class AgendamentoService {
         bloqueio.setCliente(null);
         bloqueio.setServico(null);
 
-        repository.save(bloqueio);
+        agendamentoRepository.save(bloqueio);
     }
 
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
-        return repository.findAll().stream()
-                .filter(a -> a.getCliente() != null && a.getCliente().getTelefone() != null)
-                .filter(a -> a.getCliente().getTelefone().contains(telefone))
-                // ✅ Proteção: Garante que a data e o status não sejam nulos antes de comparar
-                .filter(a -> a.getDataHoraInicio() != null && a.getDataHoraInicio().isAfter(LocalDateTime.now()))
-                .filter(a -> a.getStatus() != null &&
-                        a.getStatus() != StatusAgendamento.CANCELADO &&
-                        a.getStatus() != StatusAgendamento.CANCELADO_PELO_CLIENTE)
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
+        try {
+            log.info("Buscando agendamentos para o telefone: {}", telefone);
+
+            return agendamentoRepository.findAll().stream()
+                    // 1. Filtro de Cliente (Blindado)
+                    .filter(a -> a.getCliente() != null &&
+                            a.getCliente().getTelefone() != null &&
+                            a.getCliente().getTelefone().contains(telefone))
+
+                    // 2. Filtro de Data e Status (Blindado)
+                    .filter(a -> a.getDataHoraInicio() != null &&
+                            a.getDataHoraInicio().isAfter(LocalDateTime.now()))
+
+                    .filter(a -> a.getStatus() != null &&
+                            a.getStatus() != StatusAgendamento.CANCELADO &&
+                            a.getStatus() != StatusAgendamento.CANCELADO_PELO_CLIENTE &&
+                            a.getStatus() != StatusAgendamento.BLOQUEADO) // Ignora bloqueios adm
+
+                    // 3. Conversão para DTO
+                    .map(a -> {
+                        try {
+                            return new DetalhamentoAgendamentoDTO(a);
+                        } catch (Exception e) {
+                            log.error("Erro ao converter agendamento ID {} para DTO", a.getId());
+                            return null;
+                        }
+                    })
+                    .filter(dto -> dto != null) // Remove qualquer DTO que falhou na conversão
+                    .toList();
+
+        } catch (Exception e) {
+            log.error("Erro crítico na busca por telefone: ", e);
+            throw new RegraDeNegocioException("Erro interno ao processar sua agenda. Tente novamente mais tarde.");
+        }
     }
 }
