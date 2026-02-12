@@ -48,10 +48,10 @@ public class SecurityConfig {
                     req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
 
                     // --- DOCUMENTAÇÃO (Swagger) ---
-                    req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
+
 
                     // --- LOGIN (Barbeiro/Admin) ---
-                    req.requestMatchers("/auth/**").permitAll();
+
 
                     req.requestMatchers("/auth/**").permitAll();
                     req.requestMatchers(HttpMethod.POST, "/login").permitAll();      // <--- O ERRO 403 ERA AQUI
@@ -59,6 +59,9 @@ public class SecurityConfig {
 
                     req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
+
+                    req.requestMatchers(HttpMethod.GET, "/agendamentos/cliente").permitAll();
+                    req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
 
                     // --- LEITURA PÚBLICA (Cliente acessa sem login) ---
                     // Adicionei "/**" no final para garantir que sub-rotas e query params passem
