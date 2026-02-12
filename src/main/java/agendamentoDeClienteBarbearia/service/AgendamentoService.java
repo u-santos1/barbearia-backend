@@ -315,19 +315,29 @@ public class AgendamentoService {
 
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
         try {
-            log.info("Iniciando busca otimizada para o telefone: {}", telefone);
+            // 1. TRATAMENTO DE TIMEZONE:
+            // Servidores na nuvem (Railway/AWS) usam UTC.
+            // Se não ajustarmos para America/Sao_Paulo, agendamentos de hoje podem sumir da lista.
+            LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
 
-            // Busca apenas o que importa direto no banco de dados
-            var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, LocalDateTime.now());
+            log.info("Buscando agendamentos ativos para telefone: {} | Referência: {}", telefone, agoraBrasil);
 
+            // 2. BUSCA NO REPOSITORY:
+            // A lógica de filtro (Status e Data) deve ficar no SQL para performance.
+            var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, agoraBrasil);
+
+            // 3. MAPEAMENTO DEFENSIVO:
             return agendamentos.stream()
                     .map(a -> {
                         try {
-                            // Verificação defensiva antes de instanciar o DTO
-                            if (a.getServico() == null || a.getBarbeiro() == null) return null;
+                            // Blindagem contra registros inconsistentes no banco
+                            if (a.getServico() == null || a.getBarbeiro() == null || a.getCliente() == null) {
+                                log.warn("Agendamento ID {} ignorado por dados incompletos.", a.getId());
+                                return null;
+                            }
                             return new DetalhamentoAgendamentoDTO(a);
                         } catch (Exception e) {
-                            log.error("Falha ao mapear agendamento ID {}: {}", a.getId(), e.getMessage());
+                            log.error("Erro ao converter agendamento ID {}: {}", a.getId(), e.getMessage());
                             return null;
                         }
                     })
@@ -335,8 +345,9 @@ public class AgendamentoService {
                     .toList();
 
         } catch (Exception e) {
-            log.error("Erro na busca de agendamentos por telefone: ", e);
-            // Sênior tip: Retorne lista vazia para o cliente não ver erro técnico (Status 200 com [])
+            // 4. FAIL-SAFE:
+            // Em vez de estourar erro 500, retorna lista vazia. O frontend trata como "Nenhum horário encontrado".
+            log.error("Erro crítico na busca por telefone: ", e);
             return new ArrayList<>();
         }
     }
