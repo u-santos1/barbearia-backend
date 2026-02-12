@@ -60,6 +60,7 @@ public class SecurityConfig {
                     req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
+                    req.requestMatchers(HttpMethod.GET, "/agendamentos/buscar").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/cliente").permitAll();
                     req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
 
