@@ -314,11 +314,14 @@ public class AgendamentoService {
     }
 
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
-        // Busca apenas agendamentos futuros e não cancelados
-        return repository.findAll().stream() // Idealmente usar @Query no repository para performance
-                .filter(a -> a.getCliente() != null && a.getCliente().getTelefone().contains(telefone))
-                .filter(a -> a.getDataHoraInicio().isAfter(LocalDateTime.now())) // Só futuros
-                .filter(a -> a.getStatus() != StatusAgendamento.CANCELADO && a.getStatus() != StatusAgendamento.CANCELADO_PELO_CLIENTE)
+        return repository.findAll().stream()
+                .filter(a -> a.getCliente() != null && a.getCliente().getTelefone() != null)
+                .filter(a -> a.getCliente().getTelefone().contains(telefone))
+                // ✅ Proteção: Garante que a data e o status não sejam nulos antes de comparar
+                .filter(a -> a.getDataHoraInicio() != null && a.getDataHoraInicio().isAfter(LocalDateTime.now()))
+                .filter(a -> a.getStatus() != null &&
+                        a.getStatus() != StatusAgendamento.CANCELADO &&
+                        a.getStatus() != StatusAgendamento.CANCELADO_PELO_CLIENTE)
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
     }
