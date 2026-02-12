@@ -130,7 +130,7 @@ public class AgendamentoController {
         return ResponseEntity.noContent().build();
     }
     // Rota para o cliente consultar a própria agenda pelo telefone
-    @GetMapping("/cliente")
+    @GetMapping("/buscar")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarPorTelefone(@RequestParam String telefone) {
         // Remove formatação (ex: (11) 9999 -> 119999)
         String telLimpo = telefone.replaceAll("\\D", "");
