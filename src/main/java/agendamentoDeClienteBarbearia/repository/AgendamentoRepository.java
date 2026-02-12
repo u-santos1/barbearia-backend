@@ -98,8 +98,12 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
             @Param("inicio") LocalDateTime inicio,
             @Param("fim") LocalDateTime fim);
 
+
     @Query("""
     SELECT a FROM Agendamento a 
+    JOIN FETCH a.barbeiro 
+    JOIN FETCH a.servico 
+    JOIN FETCH a.cliente
     WHERE a.cliente.telefone LIKE %:telefone% 
     AND a.dataHoraInicio > :agora 
     AND a.status NOT IN (

@@ -313,31 +313,32 @@ public class AgendamentoService {
         agendamentoRepository.save(bloqueio);
     }
 
+    @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
         try {
-            // 1. TRATAMENTO DE TIMEZONE:
-            // Servidores na nuvem (Railway/AWS) usam UTC.
-            // Se não ajustarmos para America/Sao_Paulo, agendamentos de hoje podem sumir da lista.
+            // 1. AJUSTE DE TIMEZONE
+            // Garante que o 'agora' seja o horário de Brasília, mesmo no Railway (UTC)
             LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
 
-            log.info("Buscando agendamentos ativos para telefone: {} | Referência: {}", telefone, agoraBrasil);
+            log.info("Iniciando busca para telefone: {} | Referência: {}", telefone, agoraBrasil);
 
-            // 2. BUSCA NO REPOSITORY:
-            // A lógica de filtro (Status e Data) deve ficar no SQL para performance.
+            // 2. CONSULTA AO REPOSITÓRIO
+            // Certifique-se que o método buscarAgendamentosAtivosPorTelefone use JOIN FETCH
             var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, agoraBrasil);
 
-            // 3. MAPEAMENTO DEFENSIVO:
+            // 3. MAPEAMENTO PARA DTO
+            // Como estamos dentro de uma @Transactional, o Hibernate consegue carregar os proxies
             return agendamentos.stream()
                     .map(a -> {
                         try {
-                            // Blindagem contra registros inconsistentes no banco
-                            if (a.getServico() == null || a.getBarbeiro() == null || a.getCliente() == null) {
-                                log.warn("Agendamento ID {} ignorado por dados incompletos.", a.getId());
+                            // Validação defensiva: evita nulos se houver sujeira no banco
+                            if (a.getBarbeiro() == null || a.getServico() == null) {
+                                log.warn("Agendamento ID {} ignorado: Barbeiro ou Serviço nulos no banco.", a.getId());
                                 return null;
                             }
                             return new DetalhamentoAgendamentoDTO(a);
                         } catch (Exception e) {
-                            log.error("Erro ao converter agendamento ID {}: {}", a.getId(), e.getMessage());
+                            log.error("Falha ao converter agendamento ID {}: {}", a.getId(), e.getMessage());
                             return null;
                         }
                     })
@@ -345,9 +346,8 @@ public class AgendamentoService {
                     .toList();
 
         } catch (Exception e) {
-            // 4. FAIL-SAFE:
-            // Em vez de estourar erro 500, retorna lista vazia. O frontend trata como "Nenhum horário encontrado".
-            log.error("Erro crítico na busca por telefone: ", e);
+            log.error("Erro catastrófico na busca por telefone: ", e);
+            // Fallback: retorna lista vazia para o frontend em vez de quebrar a aplicação
             return new ArrayList<>();
         }
     }
