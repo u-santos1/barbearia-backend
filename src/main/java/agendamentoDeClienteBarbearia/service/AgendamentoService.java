@@ -1,9 +1,7 @@
 package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.StatusAgendamento;
-import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
-import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
-import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
+import agendamentoDeClienteBarbearia.dtos.*;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.*;
@@ -11,11 +9,8 @@ import agendamentoDeClienteBarbearia.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -33,20 +28,16 @@ public class AgendamentoService {
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
 
-
-
-
-    // Horário flexível (06h às 23h) para não travar o dono
     private static final int HORARIO_ABERTURA = 6;
     private static final int HORARIO_FECHAMENTO = 23;
     private static final int INTERVALO_AGENDA_MINUTOS = 30;
 
-    // ✅ AJUSTE 1: Nome deve ser 'agendar' para bater com o Controller
+    // --- CORE: AGENDAR ---
+
     @Transactional
     public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
         log.info("Iniciando agendamento para Cliente ID: {}", dados.clienteId());
 
-        // 1. Validar Barbeiro
         Barbeiro barbeiro = barbeiroRepository.findById(dados.barbeiroId())
                 .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
 
@@ -54,31 +45,27 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("Este barbeiro não está atendendo no momento.");
         }
 
-        // 2. Validar Cliente
         Cliente cliente = clienteRepository.findById(dados.clienteId())
                 .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado. Realize o cadastro antes."));
 
-        // 3. Validar Serviço
         Servico servico = servicoRepository.findById(dados.servicoId())
                 .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
 
-        // 4. Validar Data/Hora
         LocalDateTime dataInicio = dados.dataHoraInicio();
-
         validarHorarioFuncionamento(dataInicio);
 
-        if (dataInicio.isBefore(LocalDateTime.now())) {
+        // ✅ Produção: Sincronização de Fuso para evitar agendamentos retroativos
+        LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
+        if (dataInicio.isBefore(agoraBrasil)) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
 
-        // 5. Calcular Fim e Checar Conflito
         LocalDateTime dataFim = dataInicio.plusMinutes(servico.getDuracaoEmMinutos());
 
         if (agendamentoRepository.existeConflitoDeHorario(barbeiro.getId(), dataInicio, dataFim)) {
             throw new RegraDeNegocioException("Este horário já está ocupado.");
         }
 
-        // 6. Montar Agendamento
         Agendamento agendamento = new Agendamento();
         agendamento.setCliente(cliente);
         agendamento.setBarbeiro(barbeiro);
@@ -86,75 +73,42 @@ public class AgendamentoService {
         agendamento.setDataHoraInicio(dataInicio);
         agendamento.setDataHoraFim(dataFim);
         agendamento.setStatus(StatusAgendamento.AGENDADO);
-
-        // Se o seu DTO AgendamentoDTO não tem o campo observacao, mantenha null.
-        // Se você adicionou 'String observacao' no DTO, mude para: dados.observacao()
-        agendamento.setObservacao(null);
-
-        // Financeiro
         agendamento.setValorCobrado(servico.getPreco());
-        calcularDivisaoFinanceira(agendamento, barbeiro);
 
-        // 7. Salvar e Notificar
+        calcularDivisaoFinanceira(agendamento, barbeiro);
         agendamentoRepository.save(agendamento);
-        enviarNotificacaoSegura(agendamento);
 
         return new DetalhamentoAgendamentoDTO(agendamento);
     }
 
-    // --- Métodos de Status ---
+    // --- MÉTODOS DE STATUS E CANCELAMENTO ---
 
     @Transactional
     public void cancelar(Long id) {
-        log.info("Iniciando processo de cancelamento para o agendamento ID: {}", id);
-
-        // 1. Busca o agendamento ou lança 404 (EntityNotFound)
+        log.info("Cancelamento solicitado para ID: {}", id);
         Agendamento agendamento = agendamentoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado com o ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
 
-        try {
-            // 2. Lógica Híbrida (Segurança contra erro 500)
-            // Se for um BLOQUEIO (sem cliente), o ideal é remover do banco
-            if (agendamento.getCliente() == null) {
-                agendamentoRepository.delete(agendamento);
-                log.info("Bloqueio administrativo ID {} removido do banco.", id);
-                return;
-            }
-
-            // 3. Se for um Agendamento Real, muda o status
-            // Isso garante que o Hibernate entenda a mudança de estado do objeto
-            agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
-
-            // O save dentro de @Transactional garante a sincronização imediata
-            agendamentoRepository.save(agendamento);
-
-            log.info("Agendamento ID {} marcado como CANCELADO_PELO_CLIENTE.", id);
-
-        } catch (Exception e) {
-            log.error("Erro interno ao cancelar agendamento ID {}: {}", id, e.getMessage());
-            throw new RegraDeNegocioException("Não foi possível processar o cancelamento. Tente novamente.");
+        // ✅ Blindagem: Trata bloqueios administrativos sem cliente para evitar NPE
+        if (agendamento.getCliente() == null) {
+            agendamentoRepository.delete(agendamento);
+            return;
         }
+
+        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
+        agendamentoRepository.save(agendamento);
     }
 
-    // ✅ AJUSTE 2: Adicionado método que faltava para o Controller
     @Transactional
     public void cancelarPeloBarbeiro(Long id) {
         Agendamento agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
 
-        // =================================================================================
-        // LÓGICA HÍBRIDA (SENIOR PATTERN)
-        // =================================================================================
-
-        // CENÁRIO A: É um Bloqueio Administrativo (Sem Cliente)
-        // Ação: Excluir fisicamente do banco para liberar a vaga imediatamente e limpar a sujeira.
         if (agendamento.getCliente() == null) {
             agendamentoRepository.delete(agendamento);
-            return; // Encerra aqui para não tentar salvar depois
+            return;
         }
 
-        // CENÁRIO B: É um Cliente Real
-        // Ação: Mudar status para manter no histórico que o barbeiro cancelou.
         agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_BARBEIRO);
         agendamentoRepository.save(agendamento);
     }
@@ -172,7 +126,34 @@ public class AgendamentoService {
         agendamentoRepository.save(agendamento);
     }
 
-    // --- Disponibilidade ---
+    // --- BUSCA E DISPONIBILIDADE ---
+
+    /**
+     * ✅ Produção: O uso de readOnly = true mantém a Hibernate Session aberta para
+     * evitar o erro "could not initialize proxy - no Session".
+     */
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
+        try {
+            LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
+            log.info("Buscando para telefone: {} | Ref: {}", telefone, agoraBrasil);
+
+            // IMPORTANTE: Use JOIN FETCH no seu Repository para carregar Barbeiro e Servico
+            var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, agoraBrasil);
+
+            return agendamentos.stream()
+                    .map(a -> {
+                        // Proteção contra dados incompletos ou proxies não hidratados
+                        if (a.getBarbeiro() == null || a.getServico() == null) return null;
+                        return new DetalhamentoAgendamentoDTO(a);
+                    })
+                    .filter(dto -> dto != null)
+                    .toList();
+        } catch (Exception e) {
+            log.error("Erro na busca por telefone: ", e);
+            return new ArrayList<>();
+        }
+    }
 
     @Transactional(readOnly = true)
     public List<String> listarHorariosDisponiveis(Long barbeiroId, Long servicoId, LocalDate data) {
@@ -185,15 +166,12 @@ public class AgendamentoService {
 
         List<Agendamento> agendamentos = agendamentoRepository.findAgendaDoDia(barbeiroId, inicioDia, fimDia);
 
-        // Se ainda não tiver bloqueios, usa lista vazia
-        List<Bloqueio> bloqueios = new ArrayList<>();
-
         List<String> horariosLivres = new ArrayList<>();
         LocalDateTime slotAtual = inicioDia;
 
         while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimDia)) {
             LocalDateTime slotFim = slotAtual.plusMinutes(duracaoMinutos);
-            if (isHorarioLivre(slotAtual, slotFim, agendamentos, bloqueios)) {
+            if (isHorarioLivre(slotAtual, slotFim, agendamentos)) {
                 horariosLivres.add(slotAtual.toLocalTime().toString());
             }
             slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
@@ -201,70 +179,34 @@ public class AgendamentoService {
         return horariosLivres;
     }
 
-    // Método ponte para o Controller
     public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
         return listarHorariosDisponiveis(barbeiroId, servicoId, data);
     }
 
-    // --- Listagens ---
+    // --- FINANCEIRO E ADMIN ---
 
-    @Transactional(readOnly = true)
-    public ResumoFinanceiroDTO gerarRelatorioFinanceiro(LocalDate inicio, LocalDate fim) {
-        if (inicio == null) inicio = LocalDate.now().minusDays(30);
-        if (fim == null) fim = LocalDate.now();
+    @Transactional
+    public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
+        if (!dados.isHorarioValido()) throw new IllegalArgumentException("Horário inválido.");
 
-        List<Agendamento> agendamentos = agendamentoRepository
-                .findByDataHoraInicioBetweenAndStatus(inicio.atStartOfDay(), fim.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
+        Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
+                .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
 
-        BigDecimal total = BigDecimal.ZERO;
-        BigDecimal casa = BigDecimal.ZERO;
-        BigDecimal repasse = BigDecimal.ZERO;
+        Agendamento bloqueio = new Agendamento();
+        bloqueio.setBarbeiro(barbeiro);
+        bloqueio.setDataHoraInicio(dados.dataHoraInicio());
+        bloqueio.setDataHoraFim(dados.dataHoraFim());
+        bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
+        bloqueio.setStatus(StatusAgendamento.BLOQUEADO);
+        bloqueio.setValorCobrado(BigDecimal.ZERO);
+        bloqueio.setValorTotal(BigDecimal.ZERO);
+        bloqueio.setValorBarbeiro(BigDecimal.ZERO);
+        bloqueio.setValorCasa(BigDecimal.ZERO);
 
-        for (Agendamento a : agendamentos) {
-            if (a.getValorTotal() == null) calcularDivisaoFinanceira(a, a.getBarbeiro());
-            total = total.add(a.getValorTotal());
-            repasse = repasse.add(a.getValorBarbeiro());
-            casa = casa.add(a.getValorCasa());
-        }
-        return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(), agendamentos.size());
+        agendamentoRepository.save(bloqueio);
     }
 
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailLogado) {
-        return agendamentoRepository.findAll().stream()
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorCliente(Long clienteId) {
-        return agendamentoRepository.findByClienteIdOrderByDataHoraInicioDesc(clienteId).stream()
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
-        try {
-            return agendamentoRepository.findAll().stream()
-                    .filter(a -> a.getBarbeiro().getEmail().equals(emailBarbeiro))
-                    .sorted((a1, a2) -> a2.getDataHoraInicio().compareTo(a1.getDataHoraInicio()))
-                    .map(DetalhamentoAgendamentoDTO::new)
-                    .toList();
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
-    }
-
-    // --- Auxiliares ---
-
-    private void validarHorarioFuncionamento(LocalDateTime dataInicio) {
-        // Regra do Dono: Aceita qualquer dia, entre 06h e 23h
-        int hora = dataInicio.getHour();
-        if (hora < HORARIO_ABERTURA || hora > HORARIO_FECHAMENTO) {
-            throw new RegraDeNegocioException("Horário fora do funcionamento (06h - 23h).");
-        }
-    }
+    // --- AUXILIARES ---
 
     private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
         BigDecimal preco = agendamento.getValorCobrado();
@@ -279,105 +221,64 @@ public class AgendamentoService {
         agendamento.setValorCasa(preco.subtract(valorBarbeiro));
     }
 
-    private boolean isHorarioLivre(LocalDateTime slotInicio, LocalDateTime slotFim,
-                                   List<Agendamento> agendamentos, List<Bloqueio> bloqueios) {
+    private boolean isHorarioLivre(LocalDateTime slotInicio, LocalDateTime slotFim, List<Agendamento> agendamentos) {
         for (Agendamento ag : agendamentos) {
             if (slotInicio.isBefore(ag.getDataHoraFim()) && slotFim.isAfter(ag.getDataHoraInicio())) return false;
         }
         return true;
     }
 
-    private void enviarNotificacaoSegura(Agendamento agendamento) {
-        try {
-            // notificacaoService.notificarBarbeiro(agendamento.getBarbeiro(), agendamento);
-        } catch (Exception e) {
-            log.error("Erro na notificação: {}", e.getMessage());
+    private void validarHorarioFuncionamento(LocalDateTime dataInicio) {
+        int hora = dataInicio.getHour();
+        if (hora < HORARIO_ABERTURA || hora > HORARIO_FECHAMENTO) {
+            throw new RegraDeNegocioException("Horário fora do funcionamento (06h - 23h).");
         }
     }
-    @Transactional
-    public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
-        // 1. Validação de Coerência Temporal
-        if (!dados.isHorarioValido()) {
-            throw new IllegalArgumentException("A hora final deve ser posterior à hora inicial.");
-        }
 
-        // 2. Busca o Profissional
-        Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
-                .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
+    // --- FINANCEIRO (Corrigido) ---
+    @Transactional(readOnly = true)
+    public ResumoFinanceiroDTO gerarRelatorioFinanceiro(String emailDono, LocalDate inicio, LocalDate fim) {
+        // 1. Define datas padrão se vierem nulas
+        LocalDate dataInicio = (inicio != null) ? inicio : LocalDate.now().minusDays(30);
+        LocalDate dataFim = (fim != null) ? fim : LocalDate.now();
 
-        // 3. DEFESA CRÍTICA: Verifica colisão de horário (Overlap)
-        boolean horarioOcupado = agendamentoRepository.existeConflitoDeHorario(
-                emailBarbeiro,
-                dados.dataHoraInicio(),
-                dados.dataHoraFim()
+        // 2. Busca no banco filtrando pelo DONO do barbeiro
+        List<Agendamento> agendamentos = agendamentoRepository.buscarFinanceiroPorDono(
+                emailDono,
+                dataInicio.atStartOfDay(),
+                dataFim.atTime(LocalTime.MAX),
+                StatusAgendamento.CONCLUIDO
         );
 
-        if (horarioOcupado) {
-            throw new IllegalStateException("Já existe um agendamento ou bloqueio neste intervalo de tempo.");
+        // 3. Calcula totais
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal casa = BigDecimal.ZERO;
+        BigDecimal repasse = BigDecimal.ZERO;
+
+        for (Agendamento a : agendamentos) {
+            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : BigDecimal.ZERO);
+            repasse = repasse.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : BigDecimal.ZERO);
+            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : BigDecimal.ZERO);
         }
 
-        // 4. Montagem da Entidade de Bloqueio
-        Agendamento bloqueio = new Agendamento();
-        bloqueio.setBarbeiro(barbeiro);
-        bloqueio.setDataHoraInicio(dados.dataHoraInicio());
-        bloqueio.setDataHoraFim(dados.dataHoraFim());
-
-        // Identificação visual no sistema
-        bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
-
-        // Tratamento de Status (Crie este ENUM se não tiver, ou use uma String constante)
-        bloqueio.setStatus(StatusAgendamento.BLOQUEADO); // Ou "BLOQUEADO" se for String
-
-        // 5. Tratamento Financeiro (Zeragem)
-        // Isso impede que o bloqueio apareça como "R$ 0,00" pendente no caixa
-        bloqueio.setValorCobrado(BigDecimal.ZERO);
-        bloqueio.setValorTotal(BigDecimal.ZERO);
-        bloqueio.setValorBarbeiro(BigDecimal.ZERO);
-        bloqueio.setValorCasa(BigDecimal.ZERO);
-
-        // 6. Tratamento de Nulos (Para funcionar com sua Entidade alterada)
-        bloqueio.setCliente(null);
-        bloqueio.setServico(null);
-
-        agendamentoRepository.save(bloqueio);
+        return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(), agendamentos.size());
     }
 
+    // --- LISTAR TODOS DO DONO (SaaS) ---
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
-        try {
-            // 1. AJUSTE DE TIMEZONE
-            // Garante que o 'agora' seja o horário de Brasília, mesmo no Railway (UTC)
-            LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
+    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailDono) {
+        // Busca todos os agendamentos de todos os barbeiros que pertencem a este dono
+        return agendamentoRepository.findAllByDonoEmail(emailDono).stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
+    }
 
-            log.info("Iniciando busca para telefone: {} | Referência: {}", telefone, agoraBrasil);
-
-            // 2. CONSULTA AO REPOSITÓRIO
-            // Certifique-se que o método buscarAgendamentosAtivosPorTelefone use JOIN FETCH
-            var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, agoraBrasil);
-
-            // 3. MAPEAMENTO PARA DTO
-            // Como estamos dentro de uma @Transactional, o Hibernate consegue carregar os proxies
-            return agendamentos.stream()
-                    .map(a -> {
-                        try {
-                            // Validação defensiva: evita nulos se houver sujeira no banco
-                            if (a.getBarbeiro() == null || a.getServico() == null) {
-                                log.warn("Agendamento ID {} ignorado: Barbeiro ou Serviço nulos no banco.", a.getId());
-                                return null;
-                            }
-                            return new DetalhamentoAgendamentoDTO(a);
-                        } catch (Exception e) {
-                            log.error("Falha ao converter agendamento ID {}: {}", a.getId(), e.getMessage());
-                            return null;
-                        }
-                    })
-                    .filter(dto -> dto != null)
-                    .toList();
-
-        } catch (Exception e) {
-            log.error("Erro catastrófico na busca por telefone: ", e);
-            // Fallback: retorna lista vazia para o frontend em vez de quebrar a aplicação
-            return new ArrayList<>();
-        }
+    // --- LISTAR MEUS (Barbeiro Logado) ---
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
+        // Busca apenas agendamentos deste barbeiro específico
+        return agendamentoRepository.findByBarbeiroEmailOrderByDataHoraInicioDesc(emailBarbeiro).stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
     }
 }
