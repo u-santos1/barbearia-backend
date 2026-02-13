@@ -31,6 +31,7 @@ public class AgendamentoService {
     private static final int HORARIO_ABERTURA = 6;
     private static final int HORARIO_FECHAMENTO = 23;
     private static final int INTERVALO_AGENDA_MINUTOS = 30;
+    private static final ZoneId TIMEZONE_BRASIL = ZoneId.of("America/Sao_Paulo");
 
     // --- CORE: AGENDAR ---
 
@@ -54,9 +55,8 @@ public class AgendamentoService {
         LocalDateTime dataInicio = dados.dataHoraInicio();
         validarHorarioFuncionamento(dataInicio);
 
-        // ✅ Produção: Sincronização de Fuso para evitar agendamentos retroativos
-        LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
-        if (dataInicio.isBefore(agoraBrasil)) {
+        // Validação de fuso horário centralizada
+        if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
 
@@ -76,41 +76,32 @@ public class AgendamentoService {
         agendamento.setValorCobrado(servico.getPreco());
 
         calcularDivisaoFinanceira(agendamento, barbeiro);
-        agendamentoRepository.save(agendamento);
 
-        return new DetalhamentoAgendamentoDTO(agendamento);
+        return new DetalhamentoAgendamentoDTO(agendamentoRepository.save(agendamento));
     }
 
     // --- MÉTODOS DE STATUS E CANCELAMENTO ---
 
     @Transactional
     public void cancelar(Long id) {
-        log.info("Cancelamento solicitado para ID: {}", id);
+        log.info("Processando cancelamento para ID: {}", id);
         Agendamento agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
 
-        // ✅ Blindagem: Trata bloqueios administrativos sem cliente para evitar NPE
+        // Se for bloqueio (cliente null), removemos para limpar a agenda
         if (agendamento.getCliente() == null) {
             agendamentoRepository.delete(agendamento);
             return;
         }
 
-        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
+        // Status encurtado para evitar erro de limite de caracteres (character varying 20)
+        agendamento.setStatus(StatusAgendamento.CANCELADO);
         agendamentoRepository.save(agendamento);
     }
 
     @Transactional
     public void cancelarPeloBarbeiro(Long id) {
-        Agendamento agendamento = agendamentoRepository.findById(id)
-                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
-
-        if (agendamento.getCliente() == null) {
-            agendamentoRepository.delete(agendamento);
-            return;
-        }
-
-        agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_BARBEIRO);
-        agendamentoRepository.save(agendamento);
+        this.cancelar(id); // Reuso de lógica para consistência
     }
 
     @Transactional
@@ -128,29 +119,19 @@ public class AgendamentoService {
 
     // --- BUSCA E DISPONIBILIDADE ---
 
-    /**
-     * ✅ Produção: O uso de readOnly = true mantém a Hibernate Session aberta para
-     * evitar o erro "could not initialize proxy - no Session".
-     */
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
         try {
-            LocalDateTime agoraBrasil = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
-            log.info("Buscando para telefone: {} | Ref: {}", telefone, agoraBrasil);
+            String telLimpo = telefone.replaceAll("\\D", "");
+            LocalDateTime agora = LocalDateTime.now(TIMEZONE_BRASIL);
 
-            // IMPORTANTE: Use JOIN FETCH no seu Repository para carregar Barbeiro e Servico
-            var agendamentos = agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telefone, agoraBrasil);
-
-            return agendamentos.stream()
-                    .map(a -> {
-                        // Proteção contra dados incompletos ou proxies não hidratados
-                        if (a.getBarbeiro() == null || a.getServico() == null) return null;
-                        return new DetalhamentoAgendamentoDTO(a);
-                    })
-                    .filter(dto -> dto != null)
+            // JOIN FETCH é obrigatório no Repository para evitar LazyInitializationException
+            return agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telLimpo, agora)
+                    .stream()
+                    .map(DetalhamentoAgendamentoDTO::new)
                     .toList();
         } catch (Exception e) {
-            log.error("Erro na busca por telefone: ", e);
+            log.error("Erro na busca por telefone: {}", e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -160,7 +141,6 @@ public class AgendamentoService {
         Servico servico = servicoRepository.findById(servicoId)
                 .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
 
-        int duracaoMinutos = servico.getDuracaoEmMinutos();
         LocalDateTime inicioDia = data.atTime(HORARIO_ABERTURA, 0);
         LocalDateTime fimDia = data.atTime(HORARIO_FECHAMENTO, 0);
 
@@ -169,9 +149,8 @@ public class AgendamentoService {
         List<String> horariosLivres = new ArrayList<>();
         LocalDateTime slotAtual = inicioDia;
 
-        while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimDia)) {
-            LocalDateTime slotFim = slotAtual.plusMinutes(duracaoMinutos);
-            if (isHorarioLivre(slotAtual, slotFim, agendamentos)) {
+        while (!slotAtual.plusMinutes(servico.getDuracaoEmMinutos()).isAfter(fimDia)) {
+            if (isHorarioLivre(slotAtual, slotAtual.plusMinutes(servico.getDuracaoEmMinutos()), agendamentos)) {
                 horariosLivres.add(slotAtual.toLocalTime().toString());
             }
             slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
@@ -179,15 +158,11 @@ public class AgendamentoService {
         return horariosLivres;
     }
 
-    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
-        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
-    }
-
     // --- FINANCEIRO E ADMIN ---
 
     @Transactional
     public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
-        if (!dados.isHorarioValido()) throw new IllegalArgumentException("Horário inválido.");
+        if (!dados.isHorarioValido()) throw new RegraDeNegocioException("Intervalo de horário inválido.");
 
         Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
                 .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
@@ -198,6 +173,8 @@ public class AgendamentoService {
         bloqueio.setDataHoraFim(dados.dataHoraFim());
         bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
         bloqueio.setStatus(StatusAgendamento.BLOQUEADO);
+
+        // Zera valores financeiros para bloqueios
         bloqueio.setValorCobrado(BigDecimal.ZERO);
         bloqueio.setValorTotal(BigDecimal.ZERO);
         bloqueio.setValorBarbeiro(BigDecimal.ZERO);
@@ -206,51 +183,14 @@ public class AgendamentoService {
         agendamentoRepository.save(bloqueio);
     }
 
-    // --- AUXILIARES ---
-
-    private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
-        BigDecimal preco = agendamento.getValorCobrado();
-        BigDecimal comissao = barbeiro.getComissaoPorcentagem() != null
-                ? barbeiro.getComissaoPorcentagem() : new BigDecimal("50.0");
-
-        BigDecimal valorBarbeiro = preco.multiply(comissao)
-                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_EVEN);
-
-        agendamento.setValorTotal(preco);
-        agendamento.setValorBarbeiro(valorBarbeiro);
-        agendamento.setValorCasa(preco.subtract(valorBarbeiro));
-    }
-
-    private boolean isHorarioLivre(LocalDateTime slotInicio, LocalDateTime slotFim, List<Agendamento> agendamentos) {
-        for (Agendamento ag : agendamentos) {
-            if (slotInicio.isBefore(ag.getDataHoraFim()) && slotFim.isAfter(ag.getDataHoraInicio())) return false;
-        }
-        return true;
-    }
-
-    private void validarHorarioFuncionamento(LocalDateTime dataInicio) {
-        int hora = dataInicio.getHour();
-        if (hora < HORARIO_ABERTURA || hora > HORARIO_FECHAMENTO) {
-            throw new RegraDeNegocioException("Horário fora do funcionamento (06h - 23h).");
-        }
-    }
-
-    // --- FINANCEIRO (Corrigido) ---
     @Transactional(readOnly = true)
     public ResumoFinanceiroDTO gerarRelatorioFinanceiro(String emailDono, LocalDate inicio, LocalDate fim) {
-        // 1. Define datas padrão se vierem nulas
-        LocalDate dataInicio = (inicio != null) ? inicio : LocalDate.now().minusDays(30);
-        LocalDate dataFim = (fim != null) ? fim : LocalDate.now();
+        LocalDate start = (inicio != null) ? inicio : LocalDate.now(TIMEZONE_BRASIL).minusDays(30);
+        LocalDate end = (fim != null) ? fim : LocalDate.now(TIMEZONE_BRASIL);
 
-        // 2. Busca no banco filtrando pelo DONO do barbeiro
         List<Agendamento> agendamentos = agendamentoRepository.buscarFinanceiroPorDono(
-                emailDono,
-                dataInicio.atStartOfDay(),
-                dataFim.atTime(LocalTime.MAX),
-                StatusAgendamento.CONCLUIDO
-        );
+                emailDono, start.atStartOfDay(), end.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
 
-        // 3. Calcula totais
         BigDecimal total = BigDecimal.ZERO;
         BigDecimal casa = BigDecimal.ZERO;
         BigDecimal repasse = BigDecimal.ZERO;
@@ -264,21 +204,43 @@ public class AgendamentoService {
         return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(), agendamentos.size());
     }
 
-    // --- LISTAR TODOS DO DONO (SaaS) ---
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailDono) {
-        // Busca todos os agendamentos de todos os barbeiros que pertencem a este dono
         return agendamentoRepository.findAllByDonoEmail(emailDono).stream()
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
+                .map(DetalhamentoAgendamentoDTO::new).toList();
     }
 
-    // --- LISTAR MEUS (Barbeiro Logado) ---
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
-        // Busca apenas agendamentos deste barbeiro específico
         return agendamentoRepository.findByBarbeiroEmailOrderByDataHoraInicioDesc(emailBarbeiro).stream()
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
+                .map(DetalhamentoAgendamentoDTO::new).toList();
+    }
+
+    // --- AUXILIARES PRIVADOS ---
+
+    private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
+        BigDecimal preco = agendamento.getValorCobrado();
+        BigDecimal comissao = barbeiro.getComissaoPorcentagem() != null ? barbeiro.getComissaoPorcentagem() : new BigDecimal("50.0");
+        BigDecimal valorBarbeiro = preco.multiply(comissao).divide(new BigDecimal("100"), 2, RoundingMode.HALF_EVEN);
+
+        agendamento.setValorTotal(preco);
+        agendamento.setValorBarbeiro(valorBarbeiro);
+        agendamento.setValorCasa(preco.subtract(valorBarbeiro));
+    }
+
+    private boolean isHorarioLivre(LocalDateTime slotInicio, LocalDateTime slotFim, List<Agendamento> agendamentos) {
+        return agendamentos.stream().noneMatch(ag -> slotInicio.isBefore(ag.getDataHoraFim()) && slotFim.isAfter(ag.getDataHoraInicio()));
+    }
+
+    private void validarHorarioFuncionamento(LocalDateTime dataInicio) {
+        int hora = dataInicio.getHour();
+        if (hora < HORARIO_ABERTURA || hora > HORARIO_FECHAMENTO) {
+            throw new RegraDeNegocioException("Horário fora do funcionamento (06h - 23h).");
+        }
+    }
+    // Adicione ou corrija este método no seu AgendamentoService
+    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
+        log.info("Consultando disponibilidade: Barbeiro {}, Data {}, Serviço {}", barbeiroId, data, servicoId);
+        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
     }
 }
