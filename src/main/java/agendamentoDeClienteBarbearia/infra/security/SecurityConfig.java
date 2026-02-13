@@ -63,6 +63,7 @@ public class SecurityConfig {
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/buscar").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/cliente").permitAll();
                     req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
+                    req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
 
                     // --- LEITURA PÚBLICA (Cliente acessa sem login) ---
                     // Adicionei "/**" no final para garantir que sub-rotas e query params passem

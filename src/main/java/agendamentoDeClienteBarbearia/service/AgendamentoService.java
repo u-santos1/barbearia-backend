@@ -105,7 +105,36 @@ public class AgendamentoService {
     // --- Métodos de Status ---
 
     @Transactional
-    public void cancelar(Long id) { alterarStatus(id, StatusAgendamento.CANCELADO_PELO_CLIENTE); }
+    public void cancelar(Long id) {
+        log.info("Iniciando processo de cancelamento para o agendamento ID: {}", id);
+
+        // 1. Busca o agendamento ou lança 404 (EntityNotFound)
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado com o ID: " + id));
+
+        try {
+            // 2. Lógica Híbrida (Segurança contra erro 500)
+            // Se for um BLOQUEIO (sem cliente), o ideal é remover do banco
+            if (agendamento.getCliente() == null) {
+                agendamentoRepository.delete(agendamento);
+                log.info("Bloqueio administrativo ID {} removido do banco.", id);
+                return;
+            }
+
+            // 3. Se for um Agendamento Real, muda o status
+            // Isso garante que o Hibernate entenda a mudança de estado do objeto
+            agendamento.setStatus(StatusAgendamento.CANCELADO_PELO_CLIENTE);
+
+            // O save dentro de @Transactional garante a sincronização imediata
+            agendamentoRepository.save(agendamento);
+
+            log.info("Agendamento ID {} marcado como CANCELADO_PELO_CLIENTE.", id);
+
+        } catch (Exception e) {
+            log.error("Erro interno ao cancelar agendamento ID {}: {}", id, e.getMessage());
+            throw new RegraDeNegocioException("Não foi possível processar o cancelamento. Tente novamente.");
+        }
+    }
 
     // ✅ AJUSTE 2: Adicionado método que faltava para o Controller
     @Transactional
