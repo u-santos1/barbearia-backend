@@ -33,8 +33,7 @@ public class AgendamentoService {
     private static final int INTERVALO_AGENDA_MINUTOS = 30;
     private static final ZoneId TIMEZONE_BRASIL = ZoneId.of("America/Sao_Paulo");
 
-    // --- CORE: AGENDAR ---
-
+    // --- 1. CORE: AGENDAR ---
     @Transactional
     public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
         log.info("Iniciando agendamento para Cliente ID: {}", dados.clienteId());
@@ -55,7 +54,6 @@ public class AgendamentoService {
         LocalDateTime dataInicio = dados.dataHoraInicio();
         validarHorarioFuncionamento(dataInicio);
 
-        // Validação de fuso horário centralizada
         if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
@@ -80,28 +78,26 @@ public class AgendamentoService {
         return new DetalhamentoAgendamentoDTO(agendamentoRepository.save(agendamento));
     }
 
-    // --- MÉTODOS DE STATUS E CANCELAMENTO ---
-
+    // --- 2. STATUS E CANCELAMENTO (FIX ERRO 500) ---
     @Transactional
     public void cancelar(Long id) {
         log.info("Processando cancelamento para ID: {}", id);
         Agendamento agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
 
-        // Se for bloqueio (cliente null), removemos para limpar a agenda
         if (agendamento.getCliente() == null) {
             agendamentoRepository.delete(agendamento);
             return;
         }
 
-        // Status encurtado para evitar erro de limite de caracteres (character varying 20)
+        // Mapeado para "CANCELADO" (curto) para evitar erro de VARCHAR(20) no Postgres
         agendamento.setStatus(StatusAgendamento.CANCELADO);
         agendamentoRepository.save(agendamento);
     }
 
     @Transactional
     public void cancelarPeloBarbeiro(Long id) {
-        this.cancelar(id); // Reuso de lógica para consistência
+        this.cancelar(id);
     }
 
     @Transactional
@@ -117,19 +113,14 @@ public class AgendamentoService {
         agendamentoRepository.save(agendamento);
     }
 
-    // --- BUSCA E DISPONIBILIDADE ---
-
+    // --- 3. BUSCAS E DISPONIBILIDADE ---
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
         try {
             String telLimpo = telefone.replaceAll("\\D", "");
             LocalDateTime agora = LocalDateTime.now(TIMEZONE_BRASIL);
-
-            // JOIN FETCH é obrigatório no Repository para evitar LazyInitializationException
             return agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telLimpo, agora)
-                    .stream()
-                    .map(DetalhamentoAgendamentoDTO::new)
-                    .toList();
+                    .stream().map(DetalhamentoAgendamentoDTO::new).toList();
         } catch (Exception e) {
             log.error("Erro na busca por telefone: {}", e.getMessage());
             return new ArrayList<>();
@@ -158,31 +149,36 @@ public class AgendamentoService {
         return horariosLivres;
     }
 
-    // --- FINANCEIRO E ADMIN ---
-
-    @Transactional
-    public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
-        if (!dados.isHorarioValido()) throw new RegraDeNegocioException("Intervalo de horário inválido.");
-
-        Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
-                .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
-
-        Agendamento bloqueio = new Agendamento();
-        bloqueio.setBarbeiro(barbeiro);
-        bloqueio.setDataHoraInicio(dados.dataHoraInicio());
-        bloqueio.setDataHoraFim(dados.dataHoraFim());
-        bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
-        bloqueio.setStatus(StatusAgendamento.BLOQUEADO);
-
-        // Zera valores financeiros para bloqueios
-        bloqueio.setValorCobrado(BigDecimal.ZERO);
-        bloqueio.setValorTotal(BigDecimal.ZERO);
-        bloqueio.setValorBarbeiro(BigDecimal.ZERO);
-        bloqueio.setValorCasa(BigDecimal.ZERO);
-
-        agendamentoRepository.save(bloqueio);
+    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
+        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
     }
 
+    // --- 4. LISTAGENS SAAS (MAPEADAS DO REPOSITORY) ---
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailDono) {
+        return agendamentoRepository.findAllByDonoEmail(emailDono)
+                .stream().map(DetalhamentoAgendamentoDTO::new).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
+        return agendamentoRepository.findByBarbeiroEmailOrderByDataHoraInicioDesc(emailBarbeiro)
+                .stream().map(DetalhamentoAgendamentoDTO::new).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarPorCliente(Long clienteId) {
+        return agendamentoRepository.findByClienteIdOrderByDataHoraInicioDesc(clienteId)
+                .stream().map(DetalhamentoAgendamentoDTO::new).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroId(Long barbeiroId) {
+        return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiroId)
+                .stream().map(DetalhamentoAgendamentoDTO::new).toList();
+    }
+
+    // --- 5. FINANCEIRO ---
     @Transactional(readOnly = true)
     public ResumoFinanceiroDTO gerarRelatorioFinanceiro(String emailDono, LocalDate inicio, LocalDate fim) {
         LocalDate start = (inicio != null) ? inicio : LocalDate.now(TIMEZONE_BRASIL).minusDays(30);
@@ -204,25 +200,37 @@ public class AgendamentoService {
         return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(), agendamentos.size());
     }
 
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailDono) {
-        return agendamentoRepository.findAllByDonoEmail(emailDono).stream()
-                .map(DetalhamentoAgendamentoDTO::new).toList();
+    // --- 6. BLOQUEIOS ---
+    @Transactional
+    public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
+        if (!dados.isHorarioValido()) throw new RegraDeNegocioException("Intervalo inválido.");
+
+        Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
+                .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
+
+        if (agendamentoRepository.existeConflitoDeHorario(emailBarbeiro, dados.dataHoraInicio(), dados.dataHoraFim())) {
+            throw new RegraDeNegocioException("Já existe um agendamento ou bloqueio neste horário.");
+        }
+
+        Agendamento bloqueio = new Agendamento();
+        bloqueio.setBarbeiro(barbeiro);
+        bloqueio.setDataHoraInicio(dados.dataHoraInicio());
+        bloqueio.setDataHoraFim(dados.dataHoraFim());
+        bloqueio.setStatus(StatusAgendamento.BLOQUEADO);
+        bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
+        bloqueio.setValorCobrado(BigDecimal.ZERO);
+        bloqueio.setValorTotal(BigDecimal.ZERO);
+        bloqueio.setValorBarbeiro(BigDecimal.ZERO);
+        bloqueio.setValorCasa(BigDecimal.ZERO);
+
+        agendamentoRepository.save(bloqueio);
     }
 
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarMeusAgendamentos(String emailBarbeiro) {
-        return agendamentoRepository.findByBarbeiroEmailOrderByDataHoraInicioDesc(emailBarbeiro).stream()
-                .map(DetalhamentoAgendamentoDTO::new).toList();
-    }
-
-    // --- AUXILIARES PRIVADOS ---
-
+    // --- AUXILIARES ---
     private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
         BigDecimal preco = agendamento.getValorCobrado();
         BigDecimal comissao = barbeiro.getComissaoPorcentagem() != null ? barbeiro.getComissaoPorcentagem() : new BigDecimal("50.0");
         BigDecimal valorBarbeiro = preco.multiply(comissao).divide(new BigDecimal("100"), 2, RoundingMode.HALF_EVEN);
-
         agendamento.setValorTotal(preco);
         agendamento.setValorBarbeiro(valorBarbeiro);
         agendamento.setValorCasa(preco.subtract(valorBarbeiro));
@@ -238,9 +246,29 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("Horário fora do funcionamento (06h - 23h).");
         }
     }
-    // Adicione ou corrija este método no seu AgendamentoService
-    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
-        log.info("Consultando disponibilidade: Barbeiro {}, Data {}, Serviço {}", barbeiroId, data, servicoId);
-        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
+    // --- 1. Implementação: findByBarbeiroIdAndDataHoraInicioBetween ---
+    /**
+     * Busca agendamentos de um barbeiro em um intervalo específico.
+     * Útil para validações de agenda ou relatórios por ID.
+     */
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim) {
+        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(barbeiroId, inicio, fim)
+                .stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
+    }
+
+    // --- 2. Implementação: findAllByBarbeiroDonoId ---
+    /**
+     * Lista todos os agendamentos vinculados a um Dono através do ID.
+     * Diferente do método por e-mail, este é usado quando o sistema já possui o ID do Dono.
+     */
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarTodosPorDonoId(Long donoId) {
+        return agendamentoRepository.findAllByBarbeiroDonoId(donoId)
+                .stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
     }
 }
