@@ -108,16 +108,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     // 4. MÉTODOS SAAS E SEGURANÇA
     // ========================================================================
 
-    // 🚨 CORREÇÃO AQUI: LEFT JOIN FETCH no cliente para garantir que o nome apareça
-    @Query("""
-        SELECT DISTINCT a FROM Agendamento a 
-        JOIN FETCH a.barbeiro b
-        JOIN FETCH a.servico s
-        LEFT JOIN FETCH a.cliente c
-        WHERE b.dono.email = :emailDono OR b.email = :emailDono
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findAllByDonoEmail(@Param("emailDono") String emailDono);
+
 
     @Query("""
         SELECT a FROM Agendamento a 
@@ -174,4 +165,17 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
         ORDER BY a.dataHoraInicio DESC
     """)
     List<Agendamento> findAllByBarbeiroDonoId(@Param("donoId") Long donoId);
+
+    // 3. DASHBOARD DONO (Versão Blindada com LEFT JOIN no Dono)
+    @Query("""
+        SELECT DISTINCT a FROM Agendamento a 
+        JOIN FETCH a.barbeiro b
+        LEFT JOIN FETCH b.dono d     
+        JOIN FETCH a.servico s
+        LEFT JOIN FETCH a.cliente c  
+        WHERE (d.email = :emailDono OR b.email = :emailDono)
+        ORDER BY a.dataHoraInicio DESC
+    """)
+    List<Agendamento> findAllByDonoEmail(@Param("emailDono") String emailDono);
 }
+
