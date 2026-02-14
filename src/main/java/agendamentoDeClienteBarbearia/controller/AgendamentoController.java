@@ -141,4 +141,21 @@ public class AgendamentoController {
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorDonoId(@PathVariable Long donoId) {
         return ResponseEntity.ok(service.listarTodosPorDonoId(donoId));
     }
+    @GetMapping("/barbeiro/{barbeiroId}/agenda")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarAgendaPorPeriodo(
+            @PathVariable Long barbeiroId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+
+        // Converte LocalDate (dia) para LocalDateTime (dia com hora)
+        // Inicio: 00:00:00 do dia inicial
+        // Fim: 23:59:59 do dia final
+        var lista = service.listarPorBarbeiroEPeriodo(
+                barbeiroId,
+                inicio.atStartOfDay(),
+                fim.atTime(23, 59, 59)
+        );
+
+        return ResponseEntity.ok(lista);
+    }
 }
