@@ -59,29 +59,28 @@ public class ClienteService {
     // ========================================================
 
     private DetalhamentoClienteDTO atualizar(Cliente cliente, String novoNome, String novoEmail, String novoTelefone, Barbeiro dono) {
-        // Validação de Email Duplicado em OUTRO cliente
+        // 1. Validação de Email Duplicado apenas dentro da barbearia deste DONO
         if (novoEmail != null && !novoEmail.equals(cliente.getEmail())) {
-            if (repository.existsByEmail(novoEmail)) {
-                throw new RegraDeNegocioException("Este e-mail já está em uso por outro cliente.");
+            // 👇 Alterado para usar AndDono
+            if (repository.existsByEmailAndDono(novoEmail, dono)) {
+                throw new RegraDeNegocioException("Este e-mail já está em uso por outro cliente na sua base.");
             }
             cliente.setEmail(novoEmail);
         }
 
-        // 🚨 CORREÇÃO CRÍTICA: Validação de Telefone Duplicado em OUTRO cliente
-        if (!novoTelefone.equals(cliente.getTelefone())) {
-            if (repository.existsByTelefone(novoTelefone)) {
-                throw new RegraDeNegocioException("Este telefone já pertence a outro cliente cadastrado.");
+        // 2. Validação de Telefone Duplicado apenas dentro da barbearia deste DONO
+        if (novoTelefone != null && !novoTelefone.equals(cliente.getTelefone())) {
+            // 👇 Alterado para usar AndDono
+            if (repository.existsByTelefoneAndDono(novoTelefone, dono)) {
+                throw new RegraDeNegocioException("Este telefone já pertence a outro cliente cadastrado na sua base.");
             }
             cliente.setTelefone(novoTelefone);
         }
 
         cliente.setNome(novoNome.trim());
 
-        // Opcional: Se o cliente foi criado em outra barbearia e agora está vindo nesta,
-        // você pode querer atualizar o vínculo ou manter o histórico.
-        // Se o sistema for "O cliente pertence a quem cadastrou primeiro", não mexa no dono.
-        // Se for "O cliente pertence à loja atual", atualize:
-        if (cliente.getDono() == null && dono != null) {
+        // Garante que o vínculo com o dono está correto no update
+        if (cliente.getDono() == null) {
             cliente.setDono(dono);
         }
 
@@ -89,16 +88,17 @@ public class ClienteService {
     }
 
     private DetalhamentoClienteDTO criar(String nome, String email, String telefone, Barbeiro dono) {
-        // Fail-safe de concorrência
-        if (repository.existsByTelefone(telefone)) {
-            throw new RegraDeNegocioException("Telefone já cadastrado.");
+        // 3. Fail-safe de concorrência limitado ao escopo do DONO
+        // 👇 Alterado para usar AndDono
+        if (repository.existsByTelefoneAndDono(telefone, dono)) {
+            throw new RegraDeNegocioException("Telefone já cadastrado na sua barbearia.");
         }
 
         Cliente novo = new Cliente();
         novo.setNome(nome.trim());
         novo.setEmail(email);
         novo.setTelefone(telefone);
-        novo.setDono(dono); // ✅ Agora todo cliente nasce com um pai (ou null se for app público global)
+        novo.setDono(dono);
 
         return new DetalhamentoClienteDTO(repository.save(novo));
     }
