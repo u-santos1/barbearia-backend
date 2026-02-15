@@ -1,11 +1,8 @@
 package agendamentoDeClienteBarbearia.model;
 
-
-
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,33 +16,32 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(of = "id") // Performance: Compara apenas ID
-@ToString(exclude = {"barbeiro", "cliente", "servico"}) // Evita loop infinito no log
+@EqualsAndHashCode(of = "id")
+@ToString(exclude = {"barbeiro", "cliente", "servico"})
 public class Agendamento {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Performance: FetchType.LAZY carrega o objeto apenas quando for usado (getBarbeiro)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "barbeiro_id", nullable = false)
     private Barbeiro barbeiro;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = true) // Mudou aqui
+    @JoinColumn(name = "cliente_id", nullable = false) // Mudado para false (Obrigatório)
     private Cliente cliente;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "servico_id", nullable = true) // Mudou aqui
+    @JoinColumn(name = "servico_id", nullable = false) // Mudado para false (Obrigatório)
     private Servico servico;
+
     @Column(nullable = false)
     private LocalDateTime dataHoraInicio;
 
     @Column(nullable = false)
     private LocalDateTime dataHoraFim;
 
-    // Financeiro: Sempre BigDecimal (precisão 19,2 ou 19,4)
     @Column(precision = 19, scale = 2)
     private BigDecimal valorCobrado;
 
@@ -64,4 +60,8 @@ public class Agendamento {
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private StatusAgendamento status;
+
+    // Controle de concorrência JPA
+    @Version
+    private Long version;
 }

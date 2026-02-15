@@ -125,4 +125,17 @@ public class Barbeiro implements UserDetails {
             this.mensagemOla = dados.mensagemOla();
         }
     }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Barbeiro)) return false;
+        Barbeiro other = (Barbeiro) o;
+        // Usa getters para garantir que o Proxy carregue o ID
+        return getId() != null && getId().equals(other.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

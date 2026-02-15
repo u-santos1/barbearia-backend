@@ -12,131 +12,101 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
-
-@Slf4j // Logs para monitoramento
+@Slf4j
 @Service
-@RequiredArgsConstructor // Injeção limpa via construtor
+@RequiredArgsConstructor
 public class ClienteService {
 
     private final ClienteRepository repository;
 
     // ========================================================
-    // CADASTRAR OU ATUALIZAR (UPSERT INTELIGENTE)
+    // 1. UPSERT INTELIGENTE (Funciona para App e Manual)
     // ========================================================
     @Transactional
-    public DetalhamentoClienteDTO cadastrarOuAtualizar(CadastroClienteDTO dados) {
+    public DetalhamentoClienteDTO salvar(CadastroClienteDTO dados, Barbeiro donoResponsavel) {
 
-        // 1. Sanitização (Limpeza de Dados)
-        // Remove espaços do email e coloca em minúsculo
+        // 1. Sanitização
         String emailInput = (dados.email() != null && !dados.email().isBlank())
-                ? dados.email().trim().toLowerCase()
-                : null;
-
-        // Remove tudo que não for número do telefone (ex: (11) 9... vira 119...)
+                ? dados.email().trim().toLowerCase() : null;
         String telefoneInput = limparFormatacao(dados.telefone());
 
         if (telefoneInput.isEmpty()) {
             throw new RegraDeNegocioException("Telefone é obrigatório.");
         }
 
-        // 2. Estratégia de Busca (Tentativa de Match)
-        Cliente clienteExistente = null;
+        // 2. Busca Estratégica (Evita duplicatas globais baseadas no telefone)
+        // Nota: Em SaaS, decidimos se o cliente é único por LOJA ou GLOBAL.
+        // Assumindo GLOBAL (um cliente pode ir em várias barbearias com o mesmo telefone):
+        Optional<Cliente> clienteExistente = repository.findByTelefone(telefoneInput);
 
-        // Prioridade A: Busca por Email (Identificador Forte)
-        if (emailInput != null) {
-            clienteExistente = repository.findByEmail(emailInput).orElse(null);
+        // Se achou por telefone, usa ele. Se não, tenta por email (se houver)
+        if (clienteExistente.isEmpty() && emailInput != null) {
+            clienteExistente = repository.findByEmail(emailInput);
         }
 
-        // Prioridade B: Busca por Telefone (Se não achou por email)
-        if (clienteExistente == null) {
-            clienteExistente = repository.findByTelefone(telefoneInput).orElse(null);
-        }
-
-        // 3. Decisão: Criar ou Atualizar?
-        if (clienteExistente != null) {
-            log.info("Cliente existente encontrado (ID: {}). Atualizando dados...", clienteExistente.getId());
-            return atualizarCliente(clienteExistente, dados.nome(), emailInput, telefoneInput);
+        // 3. Decisão
+        if (clienteExistente.isPresent()) {
+            return atualizar(clienteExistente.get(), dados.nome(), emailInput, telefoneInput, donoResponsavel);
         } else {
-            log.info("Novo cliente identificado. Criando cadastro...");
-            return criarCliente(dados.nome(), emailInput, telefoneInput);
+            return criar(dados.nome(), emailInput, telefoneInput, donoResponsavel);
         }
     }
 
-    // --- Métodos Privados para Organização ---
+    // ========================================================
+    // 2. MÉTODOS PRIVADOS (Core Logic)
+    // ========================================================
 
-    private DetalhamentoClienteDTO atualizarCliente(Cliente cliente, String novoNome, String novoEmail, String novoTelefone) {
-        // Validação de Conflito de Email:
-        // Se o cliente mudou o email, verifica se esse novo email já não é de OUTRA pessoa.
+    private DetalhamentoClienteDTO atualizar(Cliente cliente, String novoNome, String novoEmail, String novoTelefone, Barbeiro dono) {
+        // Validação de Email Duplicado em OUTRO cliente
         if (novoEmail != null && !novoEmail.equals(cliente.getEmail())) {
-            boolean emailEmUso = repository.existsByEmail(novoEmail);
-            if (emailEmUso) {
-                throw new RegraDeNegocioException("Este e-mail já pertence a outro cliente.");
+            if (repository.existsByEmail(novoEmail)) {
+                throw new RegraDeNegocioException("Este e-mail já está em uso por outro cliente.");
             }
             cliente.setEmail(novoEmail);
         }
 
-        // Atualiza dados básicos
+        // 🚨 CORREÇÃO CRÍTICA: Validação de Telefone Duplicado em OUTRO cliente
+        if (!novoTelefone.equals(cliente.getTelefone())) {
+            if (repository.existsByTelefone(novoTelefone)) {
+                throw new RegraDeNegocioException("Este telefone já pertence a outro cliente cadastrado.");
+            }
+            cliente.setTelefone(novoTelefone);
+        }
+
         cliente.setNome(novoNome.trim());
 
-        // Se mudou o telefone, atualiza (Cuidado: validar se telefone já existe em outro ID seria bom aqui também)
-        cliente.setTelefone(novoTelefone);
+        // Opcional: Se o cliente foi criado em outra barbearia e agora está vindo nesta,
+        // você pode querer atualizar o vínculo ou manter o histórico.
+        // Se o sistema for "O cliente pertence a quem cadastrou primeiro", não mexa no dono.
+        // Se for "O cliente pertence à loja atual", atualize:
+        if (cliente.getDono() == null && dono != null) {
+            cliente.setDono(dono);
+        }
 
-        // O JPA faz o update automático (Dirty Checking), mas save explícito é boa prática
-        repository.save(cliente);
-
-        return new DetalhamentoClienteDTO(cliente);
+        return new DetalhamentoClienteDTO(repository.save(cliente));
     }
 
-    private DetalhamentoClienteDTO criarCliente(String nome, String email, String telefone) {
-        // Validação Final (Fail-safe): Garante que o telefone não existe mesmo
-        // (Pode ter sido criado milissegundos atrás por outra request concorrente)
+    private DetalhamentoClienteDTO criar(String nome, String email, String telefone, Barbeiro dono) {
+        // Fail-safe de concorrência
         if (repository.existsByTelefone(telefone)) {
-            throw new RegraDeNegocioException("Telefone já cadastrado. Tente buscar o cliente novamente.");
+            throw new RegraDeNegocioException("Telefone já cadastrado.");
         }
 
         Cliente novo = new Cliente();
         novo.setNome(nome.trim());
         novo.setEmail(email);
         novo.setTelefone(telefone);
+        novo.setDono(dono); // ✅ Agora todo cliente nasce com um pai (ou null se for app público global)
 
-        repository.save(novo);
-        return new DetalhamentoClienteDTO(novo);
+        return new DetalhamentoClienteDTO(repository.save(novo));
     }
 
     // ========================================================
-    // LEITURAS (READ-ONLY PARA PERFORMANCE)
+    // 3. LEITURAS SEGURAS (SAAS)
     // ========================================================
 
-    @Transactional(readOnly = true)
-    public Long buscarIdPorEmail(String email) {
-        if (email == null || email.isBlank()) return null;
-
-        return repository.findByEmail(email.trim().toLowerCase())
-                .map(Cliente::getId)
-                .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado com o email: " + email));
-    }
-
-    @Transactional(readOnly = true)
-    public List<DetalhamentoClienteDTO> listarTodos() {
-        // ⚠️ ALERTA DE PRODUÇÃO:
-        // Se tiver 50.000 clientes, isso trava o sistema.
-        // O ideal aqui seria usar paginação (Pageable).
-        // Mantive a lista para compatibilidade, mas considere mudar para findAll(Pageable).
-        return repository.findAll().stream()
-                .map(DetalhamentoClienteDTO::new)
-                .toList();
-    }
-
-    // Utilitário de Limpeza
-    private String limparFormatacao(String dado) {
-        if (dado == null) return "";
-        // Regex: Substitui tudo que NÃO for dígito (0-9) por vazio
-        return dado.replaceAll("\\D", "");
-    }
-    // No ClienteService.java
-
-    // Método para listar convertendo para DTO
     @Transactional(readOnly = true)
     public List<DetalhamentoClienteDTO> listarPorDono(Long idDono) {
         return repository.findAllByDonoId(idDono).stream()
@@ -144,14 +114,18 @@ public class ClienteService {
                 .toList();
     }
 
-    // Método de cadastro que já vincula ao dono logado (Sobrecarga)
-    @Transactional
-    public DetalhamentoClienteDTO cadastrarManual(CadastroClienteDTO dados, Barbeiro dono) {
-        // Aqui você chama sua lógica de salvar, mas setando o dono
-        var cliente = new Cliente(dados);
-        cliente.setDono(dono);
-        // ... restante da lógica de salvar ...
-        repository.save(cliente);
-        return new DetalhamentoClienteDTO(cliente);
+    // 🚨 REMOVIDO: listarTodos() -> Causa vazamento de dados entre barbearias.
+
+    @Transactional(readOnly = true)
+    public Long buscarIdPorEmail(String email) {
+        if (email == null || email.isBlank()) return null;
+        return repository.findByEmail(email.trim().toLowerCase())
+                .map(Cliente::getId)
+                .orElse(null); // Retorna null em vez de erro para o front tratar melhor se for busca opcional
+    }
+
+    // Utilitários
+    private String limparFormatacao(String dado) {
+        return dado == null ? "" : dado.replaceAll("\\D", "");
     }
 }

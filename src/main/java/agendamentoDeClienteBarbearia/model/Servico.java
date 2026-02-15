@@ -1,16 +1,15 @@
 package agendamentoDeClienteBarbearia.model;
 
-
-import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "tb_servicos", indexes = {
-        @Index(name = "idx_servico_ativo", columnList = "ativo")
-})
+@Table(name = "tb_servicos",
+        indexes = { @Index(name = "idx_servico_ativo", columnList = "ativo") },
+        // Garante que o nome é único APENAS dentro da mesma barbearia
+        uniqueConstraints = { @UniqueConstraint(name = "uk_servico_nome_dono", columnNames = {"dono_id", "nome"}) }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,7 +21,7 @@ public class Servico {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100) // Removido unique=true global
     private String nome;
 
     @Column(length = 255)
@@ -37,17 +36,9 @@ public class Servico {
     @Column(nullable = false)
     private Boolean ativo = true;
 
-    @ManyToOne
-    @JoinColumn(name = "dono_id")
+    @ManyToOne(fetch = FetchType.LAZY) // Lazy é melhor aqui
+    @JoinColumn(name = "dono_id", nullable = false) // Serviço sempre tem dono
     private Barbeiro dono;
-
-    public Servico(CadastroServicoDTO dados) {
-        this.nome = dados.nome().trim();
-        this.descricao = dados.descricao();
-        this.preco = dados.preco();
-        this.duracaoEmMinutos = dados.duracaoEmMinutos();
-        this.ativo = true;
-    }
 
     public void excluir() {
         this.ativo = false;

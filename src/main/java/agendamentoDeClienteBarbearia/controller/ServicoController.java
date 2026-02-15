@@ -2,12 +2,11 @@ package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
-import agendamentoDeClienteBarbearia.model.Servico;
-import agendamentoDeClienteBarbearia.repository.ServicoRepository;
 import agendamentoDeClienteBarbearia.service.ServicoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -19,8 +18,7 @@ import java.util.List;
 public class ServicoController {
 
     private final ServicoService service;
-    // O 'final' é obrigatório para o @RequiredArgsConstructor injetar o repositório
-    private final ServicoRepository repository;
+    // 🚨 REMOVIDO: private final ServicoRepository repository; (Controller não deve tocar em Repository)
 
     @PostMapping
     public ResponseEntity<DetalhamentoServicoDTO> cadastrar(@RequestBody @Valid CadastroServicoDTO dados, UriComponentsBuilder uriBuilder) {
@@ -41,34 +39,26 @@ public class ServicoController {
         return ResponseEntity.noContent().build();
     }
 
-    // Método Legado (Para compatibilidade com agendamento antigo)
+    // Método Legado (Compatibilidade mantida)
     @GetMapping("/barbeiro/{idBarbeiro}")
     public ResponseEntity<List<DetalhamentoServicoDTO>> listarParaAgendamento(@PathVariable Long idBarbeiro) {
-        var lista = service.listarPorBarbeiro(idBarbeiro);
-        return ResponseEntity.ok(lista);
+        return ResponseEntity.ok(service.listarPorBarbeiro(idBarbeiro));
     }
 
-    // ✅ ÚNICO MÉTODO LISTAR (GET /servicos)
-    // Ele resolve tanto a listagem geral quanto os filtros da Home
+    // ✅ MÉTODO BLINDADO (GET /servicos)
+    // Resolve o vazamento de dados.
     @GetMapping
     public ResponseEntity<List<DetalhamentoServicoDTO>> listar(
             @RequestParam(required = false) Long barbeiroId,
             @RequestParam(required = false) Long lojaId
     ) {
-        List<Servico> servicos;
+        // Pega o usuário do Token JWT para segurança caso não venha parâmetro
+        String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        if (barbeiroId != null) {
-            // Filtra por barbeiro
-            servicos = repository.findAllByBarbeiroId(barbeiroId);
-        } else if (lojaId != null) {
-            // Filtra por loja (Dono)
-            servicos = repository.findAllByLojaId(lojaId);
-        } else {
-            // Sem filtro: retorna todos
-            servicos = repository.findAll();
-        }
+        // O Service decide: se tem ID, busca do ID. Se não tem, busca do emailLogado.
+        // NUNCA mais retorna findAll() global.
+        var lista = service.listarComFiltros(barbeiroId, lojaId, emailLogado);
 
-        var lista = servicos.stream().map(DetalhamentoServicoDTO::new).toList();
         return ResponseEntity.ok(lista);
     }
 }

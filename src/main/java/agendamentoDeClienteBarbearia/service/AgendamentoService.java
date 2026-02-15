@@ -27,6 +27,7 @@ public class AgendamentoService {
     private final BarbeiroRepository barbeiroRepository;
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
+    private final NotificacaoService notificacaoService;
 
     private static final int HORARIO_ABERTURA = 6;
     private static final int HORARIO_FECHAMENTO = 23;
@@ -38,32 +39,41 @@ public class AgendamentoService {
     public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
         log.info("Iniciando agendamento para Cliente ID: {}", dados.clienteId());
 
+        // --- VALIDAÇÕES (MANTIDAS) ---
         Barbeiro barbeiro = barbeiroRepository.findById(dados.barbeiroId())
                 .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
 
-        if (!barbeiro.getAtivo()) {
+        if (!Boolean.TRUE.equals(barbeiro.getAtivo())) {
             throw new RegraDeNegocioException("Este barbeiro não está atendendo no momento.");
         }
 
         Cliente cliente = clienteRepository.findById(dados.clienteId())
-                .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado. Realize o cadastro antes."));
+                .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado."));
 
         Servico servico = servicoRepository.findById(dados.servicoId())
                 .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
 
         LocalDateTime dataInicio = dados.dataHoraInicio();
-        validarHorarioFuncionamento(dataInicio);
 
-        if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
+        // Dica: Valide se dataInicio é nula antes de checar horario
+        if (dataInicio == null) throw new RegraDeNegocioException("Data é obrigatória");
+
+        // Validação de passado (Ajuste para ZoneId se necessário)
+        if (dataInicio.isBefore(LocalDateTime.now())) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
 
+        // Chama seu validador de horário comercial
+        validarHorarioFuncionamento(dataInicio);
+
         LocalDateTime dataFim = dataInicio.plusMinutes(servico.getDuracaoEmMinutos());
 
+        // Validação de Conflito (Check-Then-Act)
         if (agendamentoRepository.existeConflitoDeHorario(barbeiro.getId(), dataInicio, dataFim)) {
             throw new RegraDeNegocioException("Este horário já está ocupado.");
         }
 
+        // --- CRIAÇÃO ---
         Agendamento agendamento = new Agendamento();
         agendamento.setCliente(cliente);
         agendamento.setBarbeiro(barbeiro);
@@ -75,7 +85,17 @@ public class AgendamentoService {
 
         calcularDivisaoFinanceira(agendamento, barbeiro);
 
-        return new DetalhamentoAgendamentoDTO(agendamentoRepository.save(agendamento));
+        // --- PERSISTÊNCIA ---
+        // Salvamos primeiro para garantir que o ID foi gerado e não deu erro de banco
+        Agendamento agendamentoSalvo = agendamentoRepository.save(agendamento);
+
+        // 👇 2. A MÁGICA ACONTECE AQUI
+        // Chamamos o serviço @Async. Ele vai rodar em paralelo e não vai travar o retorno.
+        notificacaoService.notificarBarbeiro(barbeiro, agendamentoSalvo);
+
+        log.info("Agendamento realizado com sucesso! ID: {}", agendamentoSalvo.getId());
+
+        return new DetalhamentoAgendamentoDTO(agendamentoSalvo);
     }
 
     // --- 2. STATUS E CANCELAMENTO (FIX ERRO 500) ---

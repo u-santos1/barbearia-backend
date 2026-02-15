@@ -5,6 +5,7 @@ package agendamentoDeClienteBarbearia.model;
 
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.AssertTrue;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -34,4 +35,10 @@ public class Bloqueio {
 
     @Column(length = 100)
     private String motivo;
+
+    @AssertTrue(message = "A data final deve ser posterior à inicial")
+    public boolean isPeriodoValido() {
+        if (inicio == null || fim == null) return false;
+        return fim.isAfter(inicio);
+}
 }

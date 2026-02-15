@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -31,17 +32,21 @@ public class BarbeiroService {
     // --- CADASTRAR DONO ---
     @Transactional
     public Barbeiro cadastrarDono(CadastroBarbeiroDTO dados) {
-        if (repository.existsByEmail(dados.email())) throw new RegraDeNegocioException("E-mail já em uso.");
+        if (repository.existsByEmail(dados.email())) {
+            throw new RegraDeNegocioException("E-mail já em uso.");
+        }
 
         var barbeiro = new Barbeiro();
         barbeiro.setNome(dados.nome().trim());
         barbeiro.setEmail(dados.email().trim().toLowerCase());
         barbeiro.setSenha(passwordEncoder.encode(dados.senha()));
         barbeiro.setEspecialidade(dados.especialidade() != null ? dados.especialidade() : "Gestor");
+
+        // Definições de Dono
         barbeiro.setPerfil(PerfilAcesso.ADMIN);
         barbeiro.setTrabalhaComoBarbeiro(true);
-        barbeiro.setPlano(TipoPlano.SOLO);
-        barbeiro.setComissaoPorcentagem(new BigDecimal("100.00"));
+        barbeiro.setPlano(TipoPlano.SOLO); // O dono começa com plano SOLO (ou o que vier no DTO)
+        barbeiro.setComissaoPorcentagem(new BigDecimal("100.00")); // Dono ganha tudo do próprio corte
         barbeiro.setAtivo(true);
 
         return repository.save(barbeiro);
@@ -53,39 +58,39 @@ public class BarbeiroService {
         Barbeiro dono = repository.findById(idDono)
                 .orElseThrow(() -> new RegraDeNegocioException("Dono não encontrado"));
 
-        long diasDeUso = 0;
-        if (dono.getCreatedAt() != null) {
-            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now());
+        // 1. Validação de Plano (Trial ou Multi)
+        validarLimitesDoPlano(dono);
+
+        if (repository.existsByEmail(dados.email())) {
+            throw new RegraDeNegocioException("E-mail já cadastrado.");
         }
-
-        boolean aindaEstaEmTeste = diasDeUso <= 15;
-        boolean ehPlanoMulti = (dono.getPlano() == TipoPlano.MULTI);
-
-        if (!ehPlanoMulti && !aindaEstaEmTeste) {
-            throw new RegraDeNegocioException("Plano SOLO não permite equipe. Faça upgrade.");
-        }
-
-        if (repository.existsByEmail(dados.email())) throw new RegraDeNegocioException("E-mail já cadastrado.");
 
         Barbeiro novo = new Barbeiro();
         novo.setNome(dados.nome().trim());
         novo.setEmail(dados.email().trim().toLowerCase());
-        novo.setSenha(passwordEncoder.encode(dados.senha()));
+        novo.setSenha(passwordEncoder.encode(dados.senha())); // Funcionário precisa de senha para ver a própria agenda
         novo.setEspecialidade(dados.especialidade() != null ? dados.especialidade() : "Barbeiro");
-        novo.setDono(dono);
+        novo.setDono(dono); // Vínculo crucial
         novo.setTrabalhaComoBarbeiro(dados.vaiCortarCabelo() != null ? dados.vaiCortarCabelo() : true);
-        novo.setComissaoPorcentagem(dados.comissaoPorcentagem() != null ? BigDecimal.valueOf(dados.comissaoPorcentagem()) : new BigDecimal("50.00"));
+
+        // 2. Correção Financeira (Double -> BigDecimal)
+        if (dados.comissaoPorcentagem() != null) {
+            novo.setComissaoPorcentagem(BigDecimal.valueOf(dados.comissaoPorcentagem()));
+        } else {
+            novo.setComissaoPorcentagem(new BigDecimal("50.00"));
+        }
+
         novo.setPerfil(PerfilAcesso.BARBEIRO);
         novo.setAtivo(true);
-        novo.setPlano(TipoPlano.SOLO);
+        // 3. Correção: Funcionário NÃO tem plano, ele herda o acesso do dono.
+        novo.setPlano(null);
 
         return repository.save(novo);
     }
 
-    // --- LISTAGEM ADMIN ---
+    // --- LISTAGEM ADMIN (Ver tudo da loja) ---
     @Transactional(readOnly = true)
     public List<DetalhamentoBarbeiroDTO> listarEquipe(Long idDono) {
-        // Usa o método que busca Dono + Funcionários
         return repository.findAllByLoja(idDono).stream()
                 .map(DetalhamentoBarbeiroDTO::new)
                 .toList();
@@ -94,17 +99,14 @@ public class BarbeiroService {
     // --- LISTAGEM PÚBLICA (FRONTEND) ---
     @Transactional(readOnly = true)
     public List<DetalhamentoBarbeiroDTO> listarPorLoja(Long lojaId) {
-        List<Barbeiro> barbeiros;
-
-        if (lojaId != null) {
-            // Busca Dono e Funcionários daquela loja
-            barbeiros = repository.findAllByLoja(lojaId);
-        } else {
-            // Fallback: Busca todos ativos (Cuidado em produção com muitos dados)
-            barbeiros = repository.findAllByAtivoTrue();
+        if (lojaId == null) {
+            // 🚨 CORREÇÃO DE SEGURANÇA: Nunca retorne todos os usuários do banco
+            // Se não tem ID da loja, retorna lista vazia ou erro.
+            return Collections.emptyList();
         }
 
-        return barbeiros.stream()
+        // Busca Dono e Funcionários daquela loja específica
+        return repository.findAllByLoja(lojaId).stream()
                 .map(DetalhamentoBarbeiroDTO::new)
                 .toList();
     }
@@ -114,28 +116,50 @@ public class BarbeiroService {
         Barbeiro funcionario = repository.findById(idFuncionario)
                 .orElseThrow(() -> new RegraDeNegocioException("Profissional não encontrado"));
 
-        if (!funcionario.getId().equals(idDonoLogado)) {
-            if (funcionario.getDono() == null || !funcionario.getDono().getId().equals(idDonoLogado)) {
-                throw new RegraDeNegocioException("Permissão negada.");
-            }
+        // Lógica de Permissão:
+        // 1. Sou eu mesmo me inativando?
+        boolean ehOProprio = funcionario.getId().equals(idDonoLogado);
+        // 2. Sou o chefe dele me inativando? (Checagem de null no getDono para evitar NPE)
+        boolean ehOChefe = funcionario.getDono() != null && funcionario.getDono().getId().equals(idDonoLogado);
+
+        if (!ehOProprio && !ehOChefe) {
+            throw new RegraDeNegocioException("Permissão negada.");
         }
+
+        // Soft Delete (Apenas marca como inativo)
         funcionario.setAtivo(false);
+        // O @Transactional garante o save, mas se quiser ser explícito:
+        // repository.save(funcionario);
+    }
+
+    // --- MÉTODOS AUXILIARES ---
+
+    private void validarLimitesDoPlano(Barbeiro dono) {
+        long diasDeUso = 0;
+        if (dono.getCreatedAt() != null) {
+            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now());
+        }
+
+        // Regra: 15 dias de teste grátis OU Plano Multi pago
+        boolean aindaEstaEmTeste = diasDeUso <= 15;
+        boolean ehPlanoMulti = (dono.getPlano() == TipoPlano.MULTI);
+
+        if (!ehPlanoMulti && !aindaEstaEmTeste) {
+            throw new RegraDeNegocioException("Seu período de teste acabou e o plano SOLO não permite equipe. Faça upgrade para MULTI.");
+        }
     }
 
     public Barbeiro buscarPorEmail(String email) {
         return repository.findByEmail(email)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
     }
+
     @Transactional
     public DetalhamentoBarbeiroDTO atualizarPerfil(String email, AtualizacaoBarbeiroDTO dados) {
-        // Busca a entidade e a coloca no estado "Managed" do JPA
         var barbeiro = repository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
-        // Delegação da lógica de atualização para a própria Entidade (Encapsulamento)
         barbeiro.atualizarInformacoes(dados);
-
-        // Não é necessário chamar repository.save() explicitamente devido ao @Transactional
         return new DetalhamentoBarbeiroDTO(barbeiro);
     }
 }

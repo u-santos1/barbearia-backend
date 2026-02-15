@@ -1,32 +1,24 @@
 package agendamentoDeClienteBarbearia.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-
-
-import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO; // Importe o DTO correto
-import jakarta.persistence.*;
-import lombok.*;
-
-
-
-import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
-import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "tb_clientes", indexes = {
-        @Index(name = "idx_cliente_email", columnList = "email"),
-        @Index(name = "idx_cliente_telefone", columnList = "telefone")
-})
+@Table(name = "tb_clientes",
+        indexes = {
+                @Index(name = "idx_cliente_telefone", columnList = "telefone")
+        },
+        // REGRA DE OURO DO SAAS:
+        // O telefone pode repetir no banco, MAS NÃO para o mesmo Dono.
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_cliente_telefone_por_loja", columnNames = {"dono_id", "telefone"}),
+                @UniqueConstraint(name = "uk_cliente_email_por_loja", columnNames = {"dono_id", "email"})
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(of = "id")
 public class Cliente {
 
     @Id
@@ -36,18 +28,35 @@ public class Cliente {
     @Column(nullable = false, length = 100)
     private String nome;
 
+    @Column(length = 150)
     private String email;
 
-    @Column(length = 20) // Telefone não precisa ser TEXT
+    @Column(length = 20, nullable = false)
     private String telefone;
 
-    @ManyToOne
-    @JoinColumn(name = "dono_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dono_id", nullable = false) // Cliente SEMPRE pertence a alguém
     private Barbeiro dono;
 
-    public Cliente(CadastroClienteDTO dados) {
-        this.nome = dados.nome();
-        this.email = dados.email();
-        this.telefone = dados.telefone();
+    // Construtor Limpo (Sem DTO) - Quem chama converte os dados
+    public Cliente(String nome, String email, String telefone, Barbeiro dono) {
+        this.nome = nome;
+        this.email = email;
+        this.telefone = telefone;
+        this.dono = dono;
+    }
+
+    // HashCode e Equals manuais para segurança com Proxy e Sets
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Cliente)) return false;
+        Cliente cliente = (Cliente) o;
+        return getId() != null && getId().equals(cliente.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }
