@@ -27,13 +27,17 @@ public class ServicoService {
     // ... (Seus métodos cadastrar, atualizar, excluir mantidos aqui - lógica do DonoLogado permanece)
 
     @Transactional
-    public DetalhamentoServicoDTO cadastrar(CadastroServicoDTO dados) {
-        // ... (Sua implementação existente)
-        Barbeiro dono = getDonoLogado();
-        // ... validacoes e save
-        var servico = new Servico(dados);
-        servico.setDono(dono);
+    public DetalhamentoServicoDTO cadastrar(CadastroServicoDTO dados, Barbeiro dono) {
+        var servico = new Servico();
+
+        // Transfira os dados do DTO para a Entidade manualmente
+        servico.setNome(dados.nome().trim());
+        servico.setDescricao(dados.descricao());
+        servico.setPreco(dados.preco());
+        servico.setDuracaoEmMinutos(dados.duracaoEmMinutos());
         servico.setAtivo(true);
+        servico.setDono(dono); // Vincula ao dono logado
+
         repository.save(servico);
         return new DetalhamentoServicoDTO(servico);
     }
