@@ -33,7 +33,7 @@ public class Agendamento {
     private Cliente cliente;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "servico_id", nullable = false) // Mudado para false (Obrigatório)
+    @JoinColumn(name = "servico_id", nullable = true) // <--- MUDAR PARA TRUE
     private Servico servico;
 
     @Column(nullable = false)
