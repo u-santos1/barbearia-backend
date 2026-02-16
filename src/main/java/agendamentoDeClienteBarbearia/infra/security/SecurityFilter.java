@@ -30,43 +30,49 @@ public class SecurityFilter extends OncePerRequestFilter { // <--- Vem do starte
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        // 1. Tenta extrair o token do cabeçalho Authorization
         var tokenJWT = recuperarToken(request);
 
-        // 2. Só entra na lógica de autenticação se o token existir
         if (tokenJWT != null) {
             try {
-                // Valida o token e extrai o login (subject)
+                // Tenta validar. Se o token for inválido, o getSubject estoura erro e cai no catch.
                 var login = tokenService.getSubject(tokenJWT);
 
-                // Busca o usuário no banco de dados
-                var usuario = repository.findByEmail(login).orElse(null);
+                // Verifica se o login veio preenchido
+                if (login != null) {
+                    var usuario = repository.findByEmail(login).orElse(null);
 
-                if (usuario != null) {
-                    // Se o usuário existe, cria o objeto de autenticação e coloca no contexto do Spring
-                    var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    // Só autentica se achou o usuário
+                    if (usuario != null) {
+                        var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
                 }
             } catch (Exception e) {
-                // LOG de debug (Opcional): ajuda a identificar tokens malformados ou expirados sem travar a API
-                System.err.println("Erro na validação do JWT: " + e.getMessage());
-
-                // IMPORTANTE: Limpamos o contexto para garantir que nenhuma autenticação residual permaneça
+                // Token inválido, expirado ou usuário não achado.
+                // Apenas ignoramos e limpamos o contexto. O Spring vai barrar lá na frente com 403.
                 SecurityContextHolder.clearContext();
+
+
             }
         }
 
-        // 3. CONTINUIDADE: Este comando DEVE ser executado sempre,
-        // com ou sem token, para que a requisição siga para o próximo filtro.
         filterChain.doFilter(request, response);
     }
 
     private String recuperarToken(HttpServletRequest request) {
         var authorizationHeader = request.getHeader("Authorization");
 
-        // Verifica se o cabeçalho existe E se começa com "Bearer " antes de cortar a string
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            return authorizationHeader.substring(7).trim();
+        if (authorizationHeader != null) {
+            // .trim() remove espaços antes e depois de tudo
+            // .isBlank() verifica se sobrou alguma coisa
+            if (!authorizationHeader.isBlank() && authorizationHeader.toLowerCase().startsWith("bearer ")) {
+
+                // Pega o token e remove espaços extras
+                var token = authorizationHeader.substring(7).trim();
+
+                // Se o token for vazio (só tinha "Bearer "), retorna null
+                return token.isEmpty() ? null : token;
+            }
         }
 
         return null;
