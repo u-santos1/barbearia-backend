@@ -12,7 +12,7 @@ import java.util.List;
 public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> {
 
     // ========================================================================
-    // 1. CORE: VERIFICAÇÃO DE CONFLITOS
+    // 1. CORE: VERIFICAÇÃO DE CONFLITOS (Está OK, pois não faz JOIN)
     // ========================================================================
 
     @Query("""
@@ -50,13 +50,14 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
             @Param("fim") LocalDateTime fim);
 
     // ========================================================================
-    // 2. DISPONIBILIDADE E AGENDA DIÁRIA
+    // 2. DISPONIBILIDADE E AGENDA DIÁRIA (🚨 CORRIGIDO AQUI)
     // ========================================================================
 
+    // Mudei para LEFT JOIN FETCH no servico para trazer os bloqueios também
     @Query("""
         SELECT a FROM Agendamento a 
         LEFT JOIN FETCH a.cliente 
-        JOIN FETCH a.servico 
+        LEFT JOIN FETCH a.servico  
         WHERE a.barbeiro.id = :barbeiroId 
         AND a.dataHoraInicio BETWEEN :inicio AND :fim
         AND a.status NOT IN (
@@ -105,15 +106,13 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     List<Agendamento> findByClienteIdOrderByDataHoraInicioDesc(@Param("clienteId") Long clienteId);
 
     // ========================================================================
-    // 4. MÉTODOS SAAS E SEGURANÇA
+    // 4. MÉTODOS SAAS E SEGURANÇA (🚨 CORRIGIDO AQUI TAMBÉM)
     // ========================================================================
-
-
 
     @Query("""
         SELECT a FROM Agendamento a 
         LEFT JOIN FETCH a.cliente c
-        JOIN FETCH a.servico s
+        LEFT JOIN FETCH a.servico s
         WHERE a.barbeiro.email = :emailBarbeiro
         ORDER BY a.dataHoraInicio DESC
     """)
@@ -136,7 +135,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     @Query("""
         SELECT a FROM Agendamento a
         JOIN FETCH a.barbeiro
-        JOIN FETCH a.servico
+        LEFT JOIN FETCH a.servico  
         LEFT JOIN FETCH a.cliente
         WHERE a.dataHoraInicio BETWEEN :inicio AND :fim
         AND a.status = :status
@@ -151,7 +150,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     @Query("""
         SELECT a FROM Agendamento a
         LEFT JOIN FETCH a.cliente
-        JOIN FETCH a.servico
+        LEFT JOIN FETCH a.servico 
         WHERE a.barbeiro.id = :barbeiroId
         ORDER BY a.dataHoraInicio DESC
     """)
@@ -166,12 +165,12 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     """)
     List<Agendamento> findAllByBarbeiroDonoId(@Param("donoId") Long donoId);
 
-    // 3. DASHBOARD DONO (Versão Blindada com LEFT JOIN no Dono)
+    // 3. DASHBOARD DONO (🚨 CORRIGIDO: LEFT JOIN no Servico e Cliente)
     @Query("""
         SELECT DISTINCT a FROM Agendamento a 
         JOIN FETCH a.barbeiro b
         LEFT JOIN FETCH b.dono d     
-        JOIN FETCH a.servico s
+        LEFT JOIN FETCH a.servico s  
         LEFT JOIN FETCH a.cliente c  
         WHERE (d.email = :emailDono OR b.email = :emailDono)
         ORDER BY a.dataHoraInicio DESC
