@@ -9,7 +9,6 @@ import agendamentoDeClienteBarbearia.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +17,7 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -31,8 +31,7 @@ public class AgendamentoService {
     private final NotificacaoService notificacaoService;
     private final ExpedienteRepository expedienteRepository;
 
-    private static final int HORARIO_ABERTURA = 6;
-    private static final int HORARIO_FECHAMENTO = 23;
+    // Constantes de negócio
     private static final int INTERVALO_AGENDA_MINUTOS = 30;
     private static final ZoneId TIMEZONE_BRASIL = ZoneId.of("America/Sao_Paulo");
 
@@ -41,7 +40,7 @@ public class AgendamentoService {
     public DetalhamentoAgendamentoDTO agendar(AgendamentoDTO dados) {
         log.info("Iniciando agendamento para Cliente ID: {}", dados.clienteId());
 
-        // --- VALIDAÇÕES (MANTIDAS) ---
+        // --- VALIDAÇÕES ---
         Barbeiro barbeiro = barbeiroRepository.findById(dados.barbeiroId())
                 .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
 
@@ -57,20 +56,18 @@ public class AgendamentoService {
 
         LocalDateTime dataInicio = dados.dataHoraInicio();
 
-        // Dica: Valide se dataInicio é nula antes de checar horario
         if (dataInicio == null) throw new RegraDeNegocioException("Data é obrigatória");
 
-        // Validação de passado (Ajuste para ZoneId se necessário)
         if (dataInicio.isBefore(LocalDateTime.now())) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
 
-        // Chama seu validador de horário comercial
-        validarHorarioFuncionamento(dataInicio);
+        // Valida se o horário solicitado está dentro do expediente do barbeiro
+        validarHorarioFuncionamento(barbeiro.getId(), dataInicio, servico.getDuracaoEmMinutos());
 
         LocalDateTime dataFim = dataInicio.plusMinutes(servico.getDuracaoEmMinutos());
 
-        // Validação de Conflito (Check-Then-Act)
+        // Validação de Conflito
         if (agendamentoRepository.existeConflitoDeHorario(barbeiro.getId(), dataInicio, dataFim)) {
             throw new RegraDeNegocioException("Este horário já está ocupado.");
         }
@@ -87,12 +84,8 @@ public class AgendamentoService {
 
         calcularDivisaoFinanceira(agendamento, barbeiro);
 
-        // --- PERSISTÊNCIA ---
-        // Salvamos primeiro para garantir que o ID foi gerado e não deu erro de banco
         Agendamento agendamentoSalvo = agendamentoRepository.save(agendamento);
 
-        // 👇 2. A MÁGICA ACONTECE AQUI
-        // Chamamos o serviço @Async. Ele vai rodar em paralelo e não vai travar o retorno.
         notificacaoService.notificarBarbeiro(barbeiro, agendamentoSalvo);
 
         log.info("Agendamento realizado com sucesso! ID: {}", agendamentoSalvo.getId());
@@ -100,7 +93,7 @@ public class AgendamentoService {
         return new DetalhamentoAgendamentoDTO(agendamentoSalvo);
     }
 
-    // --- 2. STATUS E CANCELAMENTO (FIX ERRO 500) ---
+    // --- 2. STATUS E CANCELAMENTO ---
     @Transactional
     public void cancelar(Long id) {
         log.info("Processando cancelamento para ID: {}", id);
@@ -112,7 +105,6 @@ public class AgendamentoService {
             return;
         }
 
-        // Mapeado para "CANCELADO" (curto) para evitar erro de VARCHAR(20) no Postgres
         agendamento.setStatus(StatusAgendamento.CANCELADO);
         agendamentoRepository.save(agendamento);
     }
@@ -135,7 +127,68 @@ public class AgendamentoService {
         agendamentoRepository.save(agendamento);
     }
 
-    // --- 3. BUSCAS E DISPONIBILIDADE ---
+    // --- 3. BUSCAS E DISPONIBILIDADE (REFATORADO) ---
+
+    /**
+     * Ponto de entrada para o Controller.
+     * Retorna lista de Strings formatadas (HH:mm) para o Frontend.
+     */
+    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
+        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
+    }
+
+    /**
+     * Lógica central de disponibilidade baseada no Expediente (Banco de Dados).
+     */
+    @Transactional(readOnly = true)
+    public List<String> listarHorariosDisponiveis(Long barbeiroId, Long servicoId, LocalDate data) {
+        // 1. Validar Serviço
+        Servico servico = servicoRepository.findById(servicoId)
+                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
+
+        int duracaoMinutos = servico.getDuracaoEmMinutos();
+
+        // 2. Buscar Configuração de Expediente
+        DayOfWeek diaSolicitado = data.getDayOfWeek();
+        Optional<Expediente> expedienteOpt = expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, diaSolicitado);
+
+        // Se não tem configuração ou está marcado como folga, retorna lista vazia
+        if (expedienteOpt.isEmpty() || !expedienteOpt.get().isTrabalha()) {
+            return new ArrayList<>();
+        }
+
+        Expediente expediente = expedienteOpt.get();
+        LocalTime inicioExpediente = expediente.getAbertura();
+        LocalTime fimExpediente = expediente.getFechamento();
+
+        List<String> horariosLivres = new ArrayList<>();
+        LocalTime slotAtual = inicioExpediente;
+
+        // 3. Loop de Slots (Intervalo padrão de 30min para visualização)
+        // Verifica se o serviço inteiro cabe antes do fechamento
+        while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimExpediente)) {
+
+            LocalDateTime dataHoraInicio = data.atTime(slotAtual);
+            LocalDateTime dataHoraFim = dataHoraInicio.plusMinutes(duracaoMinutos);
+
+            // 4. Verifica colisão com Agendamentos ou Bloqueios existentes
+            boolean existeConflito = agendamentoRepository.existeConflitoDeHorario(
+                    barbeiroId,
+                    dataHoraInicio,
+                    dataHoraFim
+            );
+
+            if (!existeConflito) {
+                horariosLivres.add(slotAtual.toString());
+            }
+
+            // Avança o slot
+            slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
+        }
+
+        return horariosLivres;
+    }
+
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
         try {
@@ -149,33 +202,7 @@ public class AgendamentoService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<String> listarHorariosDisponiveis(Long barbeiroId, Long servicoId, LocalDate data) {
-        Servico servico = servicoRepository.findById(servicoId)
-                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
-
-        LocalDateTime inicioDia = data.atTime(HORARIO_ABERTURA, 0);
-        LocalDateTime fimDia = data.atTime(HORARIO_FECHAMENTO, 0);
-
-        List<Agendamento> agendamentos = agendamentoRepository.findAgendaDoDia(barbeiroId, inicioDia, fimDia);
-
-        List<String> horariosLivres = new ArrayList<>();
-        LocalDateTime slotAtual = inicioDia;
-
-        while (!slotAtual.plusMinutes(servico.getDuracaoEmMinutos()).isAfter(fimDia)) {
-            if (isHorarioLivre(slotAtual, slotAtual.plusMinutes(servico.getDuracaoEmMinutos()), agendamentos)) {
-                horariosLivres.add(slotAtual.toLocalTime().toString());
-            }
-            slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
-        }
-        return horariosLivres;
-    }
-
-    public List<String> consultarDisponibilidade(Long barbeiroId, LocalDate data, Long servicoId) {
-        return listarHorariosDisponiveis(barbeiroId, servicoId, data);
-    }
-
-    // --- 4. LISTAGENS SAAS (MAPEADAS DO REPOSITORY) ---
+    // --- 4. LISTAGENS SAAS ---
     @Transactional(readOnly = true)
     public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailDono) {
         return agendamentoRepository.findAllByDonoEmail(emailDono)
@@ -198,6 +225,22 @@ public class AgendamentoService {
     public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroId(Long barbeiroId) {
         return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiroId)
                 .stream().map(DetalhamentoAgendamentoDTO::new).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim) {
+        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(barbeiroId, inicio, fim)
+                .stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DetalhamentoAgendamentoDTO> listarTodosPorDonoId(Long donoId) {
+        return agendamentoRepository.findAllByBarbeiroDonoId(donoId)
+                .stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
     }
 
     // --- 5. FINANCEIRO ---
@@ -248,7 +291,8 @@ public class AgendamentoService {
         agendamentoRepository.save(bloqueio);
     }
 
-    // --- AUXILIARES ---
+    // --- AUXILIARES E VALIDAÇÕES INTERNAS ---
+
     private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
         BigDecimal preco = agendamento.getValorCobrado();
         BigDecimal comissao = barbeiro.getComissaoPorcentagem() != null ? barbeiro.getComissaoPorcentagem() : new BigDecimal("50.0");
@@ -258,93 +302,28 @@ public class AgendamentoService {
         agendamento.setValorCasa(preco.subtract(valorBarbeiro));
     }
 
-    private boolean isHorarioLivre(LocalDateTime slotInicio, LocalDateTime slotFim, List<Agendamento> agendamentos) {
-        return agendamentos.stream().noneMatch(ag -> slotInicio.isBefore(ag.getDataHoraFim()) && slotFim.isAfter(ag.getDataHoraInicio()));
-    }
-
-    private void validarHorarioFuncionamento(LocalDateTime dataInicio) {
-        int hora = dataInicio.getHour();
-        if (hora < HORARIO_ABERTURA || hora > HORARIO_FECHAMENTO) {
-            throw new RegraDeNegocioException("Horário fora do funcionamento (06h - 23h).");
-        }
-    }
-    // --- 1. Implementação: findByBarbeiroIdAndDataHoraInicioBetween ---
     /**
-     * Busca agendamentos de um barbeiro em um intervalo específico.
-     * Útil para validações de agenda ou relatórios por ID.
+     * Valida se o horário escolhido respeita o Expediente do banco de dados.
+     * Substitui a antiga validação de horário fixo (06-23h).
      */
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim) {
-        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(barbeiroId, inicio, fim)
-                .stream()
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
-    }
+    private void validarHorarioFuncionamento(Long barbeiroId, LocalDateTime dataInicio, int duracaoMinutos) {
+        DayOfWeek dia = dataInicio.getDayOfWeek();
+        LocalTime horaAgendamento = dataInicio.toLocalTime();
+        LocalTime horaFimAgendamento = horaAgendamento.plusMinutes(duracaoMinutos);
 
-    // --- 2. Implementação: findAllByBarbeiroDonoId ---
-    /**
-     * Lista todos os agendamentos vinculados a um Dono através do ID.
-     * Diferente do método por e-mail, este é usado quando o sistema já possui o ID do Dono.
-     */
-    @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarTodosPorDonoId(Long donoId) {
-        return agendamentoRepository.findAllByBarbeiroDonoId(donoId)
-                .stream()
-                .map(DetalhamentoAgendamentoDTO::new)
-                .toList();
-    }
+        // Busca configuração
+        Expediente expediente = expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, dia)
+                .orElseThrow(() -> new RegraDeNegocioException("O profissional não possui agenda configurada para " + dia));
 
-
-
-    public List<LocalTime> buscarHorariosDisponiveis(Long barbeiroId, LocalDate data, Long servicoId) {
-
-        // 1. Busca o serviço para saber a duração
-        Servico servico = servicoRepository.findById(servicoId)
-                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
-
-        int duracaoMinutos = servico.getDuracaoEmMinutos();
-
-        // 2. Descobre o dia da semana e busca o expediente
-        DayOfWeek diaSolicitado = data.getDayOfWeek();
-        Expediente expediente = expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, diaSolicitado)
-                .orElseThrow(() -> new RegraDeNegocioException("Agenda não configurada para esta data."));
-
-        // 3. Se for dia de folga, retorna lista vazia imediatamente
         if (!expediente.isTrabalha()) {
-            return new ArrayList<>();
+            throw new RegraDeNegocioException("O profissional não trabalha neste dia (" + dia + ").");
         }
 
-        // 4. Define limites do dia baseados no banco
-        LocalTime inicioExpediente = expediente.getAbertura();
-        LocalTime fimExpediente = expediente.getFechamento();
-
-        List<LocalTime> slotsLivres = new ArrayList<>();
-        LocalTime slotAtual = inicioExpediente;
-
-        // 5. Loop: Enquanto o SERVIÇO couber dentro do expediente...
-        // Verifica se (Inicio + Duração) <= Hora de Fechar
-        while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimExpediente)) {
-
-            // CONVERSÃO CRÍTICA: O Repository precisa de LocalDateTime (Data + Hora)
-            LocalDateTime dataHoraInicio = data.atTime(slotAtual);
-            LocalDateTime dataHoraFim = dataHoraInicio.plusMinutes(duracaoMinutos);
-
-            // 6. Verifica conflito no banco
-            boolean existeConflito = agendamentoRepository.existeConflitoDeHorario(
-                    barbeiroId,
-                    dataHoraInicio,
-                    dataHoraFim
+        if (horaAgendamento.isBefore(expediente.getAbertura()) || horaFimAgendamento.isAfter(expediente.getFechamento())) {
+            throw new RegraDeNegocioException(
+                    String.format("Horário indisponível. Funcionamento hoje: %s às %s",
+                            expediente.getAbertura(), expediente.getFechamento())
             );
-
-            // Se não tem conflito, adiciona na lista
-            if (!existeConflito) {
-                slotsLivres.add(slotAtual);
-            }
-
-            // Avança para o próximo slot (Use a constante para manter padrão visual, ex: 30 em 30 min)
-            slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
         }
-
-        return slotsLivres;
     }
 }
