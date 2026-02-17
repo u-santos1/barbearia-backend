@@ -9,6 +9,7 @@ import agendamentoDeClienteBarbearia.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class AgendamentoService {
     private final ClienteRepository clienteRepository;
     private final ServicoRepository servicoRepository;
     private final NotificacaoService notificacaoService;
+    private final ExpedienteRepository expedienteRepository;
 
     private static final int HORARIO_ABERTURA = 6;
     private static final int HORARIO_FECHAMENTO = 23;
@@ -290,5 +292,59 @@ public class AgendamentoService {
                 .stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
+    }
+
+
+
+    public List<LocalTime> buscarHorariosDisponiveis(Long barbeiroId, LocalDate data, Long servicoId) {
+
+        // 1. Busca o serviço para saber a duração
+        Servico servico = servicoRepository.findById(servicoId)
+                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
+
+        int duracaoMinutos = servico.getDuracaoEmMinutos();
+
+        // 2. Descobre o dia da semana e busca o expediente
+        DayOfWeek diaSolicitado = data.getDayOfWeek();
+        Expediente expediente = expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, diaSolicitado)
+                .orElseThrow(() -> new RegraDeNegocioException("Agenda não configurada para esta data."));
+
+        // 3. Se for dia de folga, retorna lista vazia imediatamente
+        if (!expediente.isTrabalha()) {
+            return new ArrayList<>();
+        }
+
+        // 4. Define limites do dia baseados no banco
+        LocalTime inicioExpediente = expediente.getAbertura();
+        LocalTime fimExpediente = expediente.getFechamento();
+
+        List<LocalTime> slotsLivres = new ArrayList<>();
+        LocalTime slotAtual = inicioExpediente;
+
+        // 5. Loop: Enquanto o SERVIÇO couber dentro do expediente...
+        // Verifica se (Inicio + Duração) <= Hora de Fechar
+        while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimExpediente)) {
+
+            // CONVERSÃO CRÍTICA: O Repository precisa de LocalDateTime (Data + Hora)
+            LocalDateTime dataHoraInicio = data.atTime(slotAtual);
+            LocalDateTime dataHoraFim = dataHoraInicio.plusMinutes(duracaoMinutos);
+
+            // 6. Verifica conflito no banco
+            boolean existeConflito = agendamentoRepository.existeConflitoDeHorario(
+                    barbeiroId,
+                    dataHoraInicio,
+                    dataHoraFim
+            );
+
+            // Se não tem conflito, adiciona na lista
+            if (!existeConflito) {
+                slotsLivres.add(slotAtual);
+            }
+
+            // Avança para o próximo slot (Use a constante para manter padrão visual, ex: 30 em 30 min)
+            slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
+        }
+
+        return slotsLivres;
     }
 }
