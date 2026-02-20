@@ -57,13 +57,13 @@ public class SecurityConfig {
                     req.requestMatchers(HttpMethod.POST, "/login").permitAll();      // <--- O ERRO 403 ERA AQUI
                     req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll(); // <--- E AQUI
 
-                    req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
+                    req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/buscar").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/cliente").permitAll();
                     req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
-                    req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
+
 
                     // --- LEITURA PÚBLICA (Cliente acessa sem login) ---
                     // Adicionei "/**" no final para garantir que sub-rotas e query params passem
@@ -76,8 +76,6 @@ public class SecurityConfig {
                     req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();
                     req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll();
 
-                    // Webhook de pagamento (Se tiver)
-                    req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
 
                     // Cadastro de Barbeiro (Geralmente público para novos cadastros)
                     req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();

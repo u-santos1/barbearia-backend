@@ -2,13 +2,16 @@ package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
+import agendamentoDeClienteBarbearia.dtos.RelatorioFinanceiroCompletoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.AgendamentoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -157,5 +160,15 @@ public class AgendamentoController {
         );
 
         return ResponseEntity.ok(lista);
+    }
+    @GetMapping("/financeiro/extrato")
+    public ResponseEntity<RelatorioFinanceiroCompletoDTO> getExtratoFinanceiro(
+            @AuthenticationPrincipal Barbeiro barbeiroLogado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+
+        // Supondo que o usuário logado seja o Dono
+        var relatorio = service.gerarExtratoFinanceiro(barbeiroLogado.getEmail(), inicio, fim);
+        return ResponseEntity.ok(relatorio);
     }
 }

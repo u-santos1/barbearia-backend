@@ -326,4 +326,32 @@ public class AgendamentoService {
             );
         }
     }
+    @Transactional(readOnly = true)
+    public RelatorioFinanceiroCompletoDTO gerarExtratoFinanceiro(String emailDono, LocalDate inicio, LocalDate fim) {
+        // Se não mandar data, pega os últimos 30 dias
+        LocalDate dataInicio = (inicio != null) ? inicio : LocalDate.now().minusDays(30);
+        LocalDate dataFim = (fim != null) ? fim : LocalDate.now();
+
+        // Busca apenas os CONCLUIDOS no período
+        List<Agendamento> agendamentos = agendamentoRepository.buscarFinanceiroPorDono(
+                emailDono, dataInicio.atStartOfDay(), dataFim.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
+
+        double total = 0.0;
+        double casa = 0.0;
+        double comissoes = 0.0;
+
+        // Soma os valores
+        for (Agendamento a : agendamentos) {
+            total += a.getValorTotal() != null ? a.getValorTotal().doubleValue() : 0.0;
+            casa += a.getValorCasa() != null ? a.getValorCasa().doubleValue() : 0.0;
+            comissoes += a.getValorBarbeiro() != null ? a.getValorBarbeiro().doubleValue() : 0.0;
+        }
+
+        // Converte a lista de entidades para DTOs para o extrato
+        List<DetalhamentoAgendamentoDTO> extrato = agendamentos.stream()
+                .map(DetalhamentoAgendamentoDTO::new)
+                .toList();
+
+        return new RelatorioFinanceiroCompletoDTO(total, casa, comissoes, agendamentos.size(), extrato);
+    }
 }
