@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.controller;
 
 
 import agendamentoDeClienteBarbearia.dtos.RespostaPixDTO;
+
 import agendamentoDeClienteBarbearia.dtos.UpgradeRequestDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.BarbeiroService;
@@ -11,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 import java.util.Map;
 
@@ -23,22 +26,7 @@ public class PagamentoController {
     private final PagamentoService service;
     private final BarbeiroService barbeiroService;
 
-    // ========================================================
-    // 1. CRIAR PAGAMENTO (PIX)
-    // ========================================================
-    // Mudamos de @PathVariable para pegar do Token (Mais seguro)
-    @PostMapping("/upgrade")
-    public ResponseEntity<RespostaPixDTO> criarPagamento() {
-        // 1. Identifica quem está logado
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Barbeiro barbeiro = barbeiroService.buscarPorEmail(email);
 
-        // 2. O Service já devolve o DTO pronto com QR Code e Base64
-        RespostaPixDTO dto = service.gerarPixUpgrade(barbeiro.getId());
-
-        // 3. Retorna direto para o Front
-        return ResponseEntity.ok(dto);
-    }
 
     // ========================================================
     // 2. WEBHOOK (MERCADO PAGO)
