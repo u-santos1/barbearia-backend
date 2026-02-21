@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.controller;
 
 
 import agendamentoDeClienteBarbearia.dtos.RespostaPixDTO;
+import agendamentoDeClienteBarbearia.dtos.UpgradeRequestDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.BarbeiroService;
 import agendamentoDeClienteBarbearia.service.PagamentoService;
@@ -70,5 +71,16 @@ public class PagamentoController {
 
         // Sempre retorna 200 OK para o Mercado Pago não reenviar
         return ResponseEntity.ok().build();
+    }
+    @PostMapping("/upgrade")
+    public ResponseEntity<RespostaPixDTO> criarPagamento(@RequestBody UpgradeRequestDTO dados) {
+        // 1. Identifica o barbeiro logado pelo Token JWT
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Barbeiro barbeiro = barbeiroService.buscarPorEmail(email);
+
+        // 2. Chama o service passando o ID do usuário e os dados coletados (Nome/CPF)
+        RespostaPixDTO resposta = service.gerarPixUpgrade(barbeiro.getId(), dados);
+
+        return ResponseEntity.ok(resposta);
     }
 }
