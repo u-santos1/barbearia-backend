@@ -61,13 +61,26 @@ public class BarbeiroService {
         // 1. Validação de Plano (Trial ou Multi)
         validarLimitesDoPlano(dono);
 
-        if (repository.existsByEmail(dados.email())) {
+        String emailFormatado = dados.email().trim().toLowerCase();
+
+        // 2. LÓGICA INTELIGENTE (SEM QUEBRAR O CÓDIGO)
+        // Busca no banco. Se achar, usa o existente. Se não achar, cria um "new Barbeiro()" vazio.
+        Barbeiro novo = repository.findByEmail(emailFormatado).orElse(new Barbeiro());
+
+        // Se ele já existe no banco (tem ID) E está ATIVO, aí sim bloqueia o cadastro.
+        // Se ele estiver inativo (ativo = false), o sistema pula esse IF e sobrescreve os dados reativando-o!
+        if (novo.getId() != null && novo.getAtivo()) {
             throw new RegraDeNegocioException("E-mail já cadastrado.");
         }
 
-        Barbeiro novo = new Barbeiro();
+        // ====================================================================
+        // O SEU CÓDIGO DAQUI PARA BAIXO CONTINUA EXATAMENTE IGUAL
+        // Se for um cadastro novo, preenche do zero.
+        // Se for um funcionário inativo, ele atualiza as informações antigas!
+        // ====================================================================
+
         novo.setNome(dados.nome().trim());
-        novo.setEmail(dados.email().trim().toLowerCase());
+        novo.setEmail(emailFormatado);
         novo.setSenha(passwordEncoder.encode(dados.senha())); // Funcionário precisa de senha para ver a própria agenda
         novo.setEspecialidade(dados.especialidade() != null ? dados.especialidade() : "Barbeiro");
         novo.setDono(dono); // Vínculo crucial
@@ -81,7 +94,11 @@ public class BarbeiroService {
         }
 
         novo.setPerfil(PerfilAcesso.BARBEIRO);
+
+        // A MÁGICA FINAL ACONTECE AQUI:
+        // Se era um barbeiro inativo (false), ele volta para "true"
         novo.setAtivo(true);
+
         // 3. Correção: Funcionário NÃO tem plano, ele herda o acesso do dono.
         novo.setPlano(null);
 
