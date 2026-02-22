@@ -103,4 +103,17 @@ public class BarbeiroController {
 
         return ResponseEntity.ok(response);
     }
+    // ================================================================
+    // 7. QUEM SOU EU (Consulta de Perfil Atualizado)
+    // ================================================================
+    @GetMapping("/me")
+    public ResponseEntity<DetalhamentoBarbeiroDTO> buscarMeuPerfil() {
+        // Pega o e-mail do Token JWT
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // Busca no banco para garantir que o 'plano' venha atualizado pelo Webhook
+        Barbeiro barbeiro = service.buscarPorEmail(email);
+
+        return ResponseEntity.ok(new DetalhamentoBarbeiroDTO(barbeiro));
+    }
 }
