@@ -121,7 +121,9 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     @Query("""
         SELECT a FROM Agendamento a 
         JOIN FETCH a.barbeiro b
-        WHERE (b.dono.email = :emailDono OR b.email = :emailDono)
+        LEFT JOIN b.dono d
+        LEFT JOIN FETCH a.servico s
+        WHERE (d.email = :emailDono OR b.email = :emailDono)
         AND a.dataHoraInicio BETWEEN :inicio AND :fim 
         AND a.status = :status
     """)
