@@ -184,7 +184,7 @@ Decisões de arquitetura:
 
 ## 👨‍💻 Autor
 
-**Wesley (Uerles Santos)**
+**(Uerles Santos)**
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Uerles%20Santos-blue)](https://www.linkedin.com/in/uerles-santos-099337313)
 [![GitHub](https://img.shields.io/badge/GitHub-u--santos1-black)](https://github.com/u-santos1)
