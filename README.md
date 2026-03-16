@@ -1,74 +1,190 @@
-# 💈 Barber Pro API - Backend
+# 💈 Barber Pro API
 
-![Java](https://img.shields.io/badge/Java-17%2B-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
-![Security](https://img.shields.io/badge/Spring%20Security-JWT-red)
+> SaaS completo para gestão de barbearias — em produção
 
-> API RESTful robusta desenvolvida para gestão completa de barbearias no modelo SaaS (Software as a Service).
+[![Java](https://img.shields.io/badge/Java-17+-orange)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)](https://www.postgresql.org/)
+[![Deploy](https://img.shields.io/badge/Deploy-Railway-purple)](https://railway.app/)
+
+🔗 **[Ver sistema em produção](https://barbearia-frontend-rose.vercel.app/)**
+
+---
 
 ## 📋 Sobre o Projeto
 
-Este é o backend do sistema **Barber Pro**, responsável por toda a lógica de negócios, segurança e persistência de dados. O sistema permite que donos de barbearias gerenciem sua equipe, serviços, agenda e financeiro, enquanto clientes podem agendar horários online.
+API RESTful backend de um SaaS para gestão completa de barbearias.
+Construído do zero com foco em Clean Code, segurança e arquitetura escalável.
 
-O projeto foi desenvolvido com foco em **Clean Code**, arquitetura em camadas e segurança **Stateless** via Tokens JWT.
-
----
-
-## 🚀 Tecnologias Utilizadas
-
-* **Linguagem:** Java 17+
-* **Framework Principal:** Spring Boot 3
-* **Segurança:** Spring Security + JWT (JSON Web Token)
-* **Banco de Dados:** PostgreSQL (Produção) / H2 (Dev)
-* **ORM:** Spring Data JPA (Hibernate)
-* **Validação:** Bean Validation (Jakarta Validation)
-* **Utilitários:** Lombok (Redução de boilerplate)
-* **Notificações:** Integração com OneSignal (Push Notifications)
-* **Deploy:** Railway / Docker
+O sistema permite que donos de barbearias gerenciem sua equipe, serviços
+e agenda — enquanto clientes agendam horários online sem precisar de cadastro.
 
 ---
 
-## ⚙️ Funcionalidades Principais
+## ✨ Funcionalidades
 
-### 🔐 Segurança & Autenticação
-* Login via Token JWT (Stateless).
-* Filtro de segurança personalizado (`SecurityFilter`) para interceptar requisições.
-* Proteção contra ataques CORS.
-* Controle de acesso baseado em Roles (ADMIN, BARBEIRO, CLIENTE).
+### 🔐 Segurança
+- Autenticação stateless com JWT (HMAC256)
+- Controle de acesso por roles — ADMIN, BARBEIRO, CLIENTE
+- Spring Security com filtro customizado
+- Senhas com hash BCrypt
 
-### 📅 Gestão de Agenda Inteligente
-* **Agendamento:** Validação automática de conflitos de horário.
-* **Expediente Dinâmico:** Cada barbeiro configura seus dias e horários de trabalho (tabela `tb_expediente`).
-* **Bloqueios Administrativos:** O barbeiro pode bloquear horários (almoço, médico) sem precisar de um cliente.
-* **Cálculo de Slots:** O sistema gera automaticamente os horários disponíveis baseados na duração do serviço escolhido.
+### 📅 Agenda Inteligente
+- Validação automática de conflitos de horário
+- Expediente dinâmico por barbeiro (dias e horários configuráveis)
+- Bloqueios administrativos (almoço, consulta médica)
+- Cálculo automático de slots baseado na duração do serviço
 
-### 💰 Financeiro & Gestão
-* **Multi-tenancy:** Suporte a múltiplos barbeiros e donos.
-* **Comissionamento:** Cálculo automático da divisão de valor (Parte do Barbeiro / Parte da Casa).
-* **Dashboard:** Endpoints otimizados para gráficos de faturamento e métricas diárias.
+### 💰 Financeiro
+- Integração com Mercado Pago
+- Comissionamento automático (parte do barbeiro / parte da casa)
+- Relatórios de faturamento com filtro por período
+- Dashboard com métricas diárias
 
----
-
-## 🗄️ Modelo de Dados (Resumo)
-
-O banco de dados foi modelado para garantir integridade e performance. Principais entidades:
-
-* **Usuario/Barbeiro:** Dados de login, perfil e configuração.
-* **Agendamento:** Centraliza atendimentos e bloqueios (status: AGENDADO, CONCLUIDO, CANCELADO, BLOQUEADO).
-* **Expediente:** Define a grade de horário (Dia da Semana, Abre, Fecha, Trabalha?).
-* **Servico:** Catálogo de cortes e preços.
+### 🏢 Multi-tenancy
+- Suporte a múltiplos barbeiros por barbearia
+- Cada dono gerencia sua própria equipe e agenda
 
 ---
 
-## 🛠️ Como Rodar o Projeto
+## 🛠️ Tech Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Linguagem | Java 17 |
+| Framework | Spring Boot 3 |
+| Segurança | Spring Security + JWT |
+| Persistência | Spring Data JPA (Hibernate) |
+| Banco de dados | PostgreSQL |
+| Migrations | Flyway |
+| Pagamentos | Mercado Pago API |
+| Notificações | OneSignal (Push) |
+| Deploy | Railway + Docker |
+
+---
+
+## 🗄️ Modelo de Dados
+
+```
+Barbeiro (dono ou funcionário)
+    ↓
+Expediente (grade de horários por dia da semana)
+    ↓
+Agendamento (AGENDADO → CONFIRMADO → CONCLUÍDO / CANCELADO)
+    ↑               ↑
+  Cliente        Serviço
+```
+
+Decisões técnicas:
+- FetchType.LAZY em todos os relacionamentos — evita N+1
+- @Version no Agendamento — controle de concorrência otimista
+- Índices nas colunas de busca frequente — performance em produção
+- BigDecimal para valores financeiros — precisão em cálculos monetários
+
+---
+
+## 🚀 Como Rodar Localmente
 
 ### Pré-requisitos
-* Java JDK 17 ou superior.
-* Maven.
-* PostgreSQL instalado (ou usar H2 em memória).
+- Java 17+
+- Docker e Docker Compose
 
 ### 1. Clone o repositório
 ```bash
-git clone [https://github.com/u-santos1/barbearia-backend.git](https://github.com/u-santos1/barbearia-backend.git)
+git clone https://github.com/u-santos1/barbearia-backend.git
 cd barbearia-backend
+```
+
+### 2. Configure as variáveis de ambiente
+Crie um arquivo `.env` na raiz com as variáveis abaixo.
+
+### 3. Suba o banco com Docker
+```bash
+docker-compose up -d
+```
+
+### 4. Rode a aplicação
+```bash
+./mvnw spring-boot:run
+```
+
+A API estará disponível em `http://localhost:8080`
+
+---
+
+## 🔑 Variáveis de Ambiente
+
+```env
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=barbearia
+PGUSER=postgres
+PGPASSWORD=sua_senha
+JWT_SECRET=seu_secret_aqui
+MP_ACCESS_TOKEN=seu_token_mercadopago
+ONESIGNAL_APP_ID=seu_app_id
+ONESIGNAL_API_KEY=sua_api_key
+```
+
+---
+
+## 📡 Principais Endpoints
+
+### Autenticação
+```
+POST /auth/login                           → Login do barbeiro/admin
+```
+
+### Agendamento (público — cliente anônimo)
+```
+POST   /agendamentos                       → Criar agendamento
+GET    /agendamentos/disponibilidade       → Consultar horários disponíveis
+GET    /agendamentos/buscar?telefone=      → Buscar por telefone
+DELETE /agendamentos/cliente/{id}          → Cancelar agendamento
+```
+
+### Gestão (autenticado)
+```
+GET  /agendamentos/admin/todos             → Listar todos (dono)
+PUT  /agendamentos/{id}/confirmar          → Confirmar
+PUT  /agendamentos/{id}/concluir           → Concluir
+GET  /agendamentos/admin/financeiro        → Relatório financeiro
+```
+
+### Barbeiros e Serviços
+```
+GET  /barbeiros/**                         → Listar barbeiros
+GET  /servicos/**                          → Listar serviços
+POST /barbeiros/registro                   → Cadastrar barbearia
+```
+
+---
+
+## 🏗️ Arquitetura
+
+```
+src/
+├── controller/        → Endpoints REST
+├── service/           → Regras de negócio
+├── repository/        → Acesso ao banco
+├── model/             → Entidades JPA
+├── dtos/              → DTOs de request
+├── dtosResponse/      → DTOs de response
+└── infra/
+    ├── security/      → JWT, Filtro, Spring Security
+    └── TratadorDeErros.java
+```
+
+Decisões de arquitetura:
+- Entidades nunca expostas diretamente na API — sempre via DTOs
+- Exceções de negócio tratadas globalmente com @RestControllerAdvice
+- Separação clara entre DTOs de request e response
+
+---
+
+## 👨‍💻 Autor
+
+**Wesley (Uerles Santos)**
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Uerles%20Santos-blue)](https://www.linkedin.com/in/uerles-santos-099337313)
+[![GitHub](https://img.shields.io/badge/GitHub-u--santos1-black)](https://github.com/u-santos1)
