@@ -57,8 +57,8 @@ public class Barbeiro implements UserDetails {
     private Boolean trabalhaComoBarbeiro = true;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private PerfilAcesso perfil;
+    @Column(nullable = false,length = 20)
+    private PerfilAcesso perfil = PerfilAcesso.BARBEIRO;
 
     @Column(nullable = false)
     private Boolean ativo = true;
