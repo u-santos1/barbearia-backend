@@ -69,9 +69,11 @@ public class AutenticacaoService implements UserDetailsService {
             log.info("Login realizado com sucesso: {}", logado.getEmail());
 
             // Pega o nome da barbearia (se for dono, é a própria, se for funcionário, é a do dono)
-            String nomeBarbearia = "Barbearia";
+            String nomeBarbearia;
             if (logado.getDono() != null) {
-                nomeBarbearia = logado.getDono().getNome(); // Ou um campo nomeFantasia se tiver
+                nomeBarbearia = logado.getDono().getBarbeariaNome();
+            } else {
+                nomeBarbearia = logado.getBarbeariaNome();
             }
 
             // 6. Retorna DTO Completo para o Front-end

@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(req -> {
                     // --- HEALTHCHECK & INFRA (Railway/Actuator) ---
                     req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
-                    req.requestMatchers("/actuator/**").permitAll();
+
 
                     // --- PREFLIGHT (CORS) ---
                     // Libera requisições OPTIONS (necessário para o navegador verificar permissões)
@@ -54,8 +54,7 @@ public class SecurityConfig {
 
 
                     req.requestMatchers("/auth/**").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/login").permitAll();      // <--- O ERRO 403 ERA AQUI
-                    req.requestMatchers(HttpMethod.POST, "/auth/login").permitAll(); // <--- E AQUI
+
 
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
@@ -109,13 +108,13 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Permite qualquer origem (Frontend)
-        configuration.addAllowedOriginPattern("*");
+        configuration.setAllowedOrigins(List.of("https://barbearia-frontend-rose.vercel.app"));
 
         // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
 
         // Cabeçalhos permitidos (Authorization, Content-Type, etc)
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
 
         // Permite credenciais/cookies (Importante para alguns navegadores)
         configuration.setAllowCredentials(true);

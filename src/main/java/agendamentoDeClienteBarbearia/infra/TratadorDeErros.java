@@ -34,6 +34,7 @@ public class TratadorDeErros {
     }
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity tratarErro401(BadCredentialsException exception){
+        log.warn("Tentativa de acesso nao autorizada {}", exception.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new DadosErroSimples(exception.getMessage()));
     }
     @ExceptionHandler(Exception.class)
