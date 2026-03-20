@@ -44,6 +44,12 @@ public class TratadorDeErros {
                 .body(new DadosErroSimples("Erro interno. Tente novamente mais tarde"));
     }
 
+    @ExceptionHandler(TokenException.class)
+    public ResponseEntity tratarErroToken(TokenException tokenException){
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new DadosErroSimples(tokenException.getMessage()));
+    }
+
     // DTOs internos para a resposta de erro
     private record DadosErroValidacao(String campo, String mensagem) {
         public DadosErroValidacao(FieldError erro) {

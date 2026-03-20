@@ -2,11 +2,13 @@ package agendamentoDeClienteBarbearia.infra.security;
 
 
 
+import agendamentoDeClienteBarbearia.infra.TokenException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import com.auth0.jwt.JWT; // <--- IMPORTANTE
 import com.auth0.jwt.algorithms.Algorithm; // <--- IMPORTANTE
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.auth0.jwt.interfaces.DecodedJWT; // <--- ESSE É O IMPORT QUE FALTA
@@ -32,7 +34,7 @@ public class TokenService {
                     .withExpiresAt(dataExpiracao())
                     .sign(algoritmo);
         } catch (JWTCreationException exception){
-            throw new RuntimeException("Erro ao gerar token JWT", exception);
+            throw new TokenException("Erro ao gerar token JWT", exception);
         }
     }
 
@@ -52,7 +54,7 @@ public class TokenService {
             return tokenDecodificado.getSubject();
 
         } catch (JWTVerificationException exception){
-            throw new RuntimeException("Token JWT inválido ou expirado!");
+            throw new TokenException("Token JWT inválido ou expirado!", exception);
         }
     }
 
