@@ -70,7 +70,19 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
                                       @Param("inicio") LocalDateTime inicio,
                                       @Param("fim") LocalDateTime fim);
 
-    List<Agendamento> findByBarbeiroIdAndDataHoraInicioBetween(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim);
+    @Query("""
+    SELECT a FROM Agendamento a
+    JOIN FETCH a.barbeiro
+    LEFT JOIN FETCH a.cliente
+    LEFT JOIN FETCH a.servico
+    WHERE a.barbeiro.id = :barbeiroId
+    AND a.dataHoraInicio BETWEEN :inicio AND :fim
+""")
+    List<Agendamento> findByBarbeiroIdAndDataHoraInicioBetween(
+            @Param("barbeiroId") Long barbeiroId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
 
     // ========================================================================
     // 3. CONSULTAS OTIMIZADAS PARA O FRONTEND
