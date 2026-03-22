@@ -58,7 +58,7 @@ public class AgendamentoService {
 
         if (dataInicio == null) throw new RegraDeNegocioException("Data é obrigatória");
 
-        if (dataInicio.isBefore(LocalDateTime.now())) {
+        if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
         }
 
