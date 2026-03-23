@@ -336,15 +336,15 @@ public class AgendamentoService {
         List<Agendamento> agendamentos = agendamentoRepository.buscarFinanceiroPorDono(
                 emailDono, dataInicio.atStartOfDay(), dataFim.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
 
-        double total = 0.0;
-        double casa = 0.0;
-        double comissoes = 0.0;
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal casa = BigDecimal.ZERO;
+        BigDecimal comissoes = BigDecimal.ZERO;
 
         // Soma os valores
         for (Agendamento a : agendamentos) {
-            total += a.getValorTotal() != null ? a.getValorTotal().doubleValue() : 0.0;
-            casa += a.getValorCasa() != null ? a.getValorCasa().doubleValue() : 0.0;
-            comissoes += a.getValorBarbeiro() != null ? a.getValorBarbeiro().doubleValue() : 0.0;
+            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : BigDecimal.ZERO);
+            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : BigDecimal.ZERO);
+            comissoes = comissoes.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : BigDecimal.ZERO);
         }
 
         // Converte a lista de entidades para DTOs para o extrato
