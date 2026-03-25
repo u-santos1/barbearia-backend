@@ -169,6 +169,7 @@ public class BarbeiroService {
     public DetalhamentoBarbeiroDTO buscarPorEmail(String email) {
         Barbeiro barbeiro = repository.findByEmail(email)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
+        return new DetalhamentoBarbeiroDTO(barbeiro);
     }
 
     @Transactional
