@@ -172,8 +172,8 @@ public class BarbeiroService {
     }
 
     @Transactional
-    public DetalhamentoBarbeiroDTO atualizarPerfil(String email, AtualizacaoBarbeiroDTO dados) {
-        var barbeiro = repository.findByEmail(email)
+    public DetalhamentoBarbeiroDTO atualizarPerfil(Long id, AtualizacaoBarbeiroDTO dados) {
+        var barbeiro = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
         barbeiro.atualizarInformacoes(dados);
