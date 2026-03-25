@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.naming.directory.BasicAttribute;
 import java.util.List;
 
 @RestController
@@ -28,11 +29,8 @@ public class BarbeiroController {
     // ================================================================
     @PostMapping
     public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrarDono(@RequestBody @Valid CadastroBarbeiroDTO dados, UriComponentsBuilder uriBuilder) {
-        // O Service retorna a Entidade Barbeiro (com ID gerado e senha hash)
-        Barbeiro barbeiro = service.cadastrarDono(dados);
 
-        // Convertemos para DTO para não expor a senha no JSON de resposta
-        var dto = new DetalhamentoBarbeiroDTO(barbeiro);
+        DetalhamentoBarbeiroDTO dto = service.cadastrarDono(dados);
 
         var uri = uriBuilder.path("/barbeiros/{id}").buildAndExpand(dto.id()).toUri();
         return ResponseEntity.created(uri).body(dto);
@@ -43,14 +41,12 @@ public class BarbeiroController {
     // ================================================================
     @PostMapping("/equipe")
     public ResponseEntity<DetalhamentoBarbeiroDTO> cadastrarFuncionario(@RequestBody @Valid CadastroBarbeiroDTO dados, UriComponentsBuilder uriBuilder) {
-        // Recupera quem está logado (o Chefe)
-        String emailChefe = SecurityContextHolder.getContext().getAuthentication().getName();
-        Barbeiro dono = service.buscarPorEmail(emailChefe);
+        // Vamos ao cofre, tiramos o "Principal" e fazemos o Cast para (Barbeiro)
+        Barbeiro chefeLogado = (Barbeiro) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        // O Service cuida da validação de plano e vínculo
-        Barbeiro novoFuncionario = service.cadastrarFuncionario(dados, dono.getId());
+        DetalhamentoBarbeiroDTO dto = service.cadastrarFuncionario(dados,chefeLogado.getId());
 
-        var dto = new DetalhamentoBarbeiroDTO(novoFuncionario);
+
         var uri = uriBuilder.path("/barbeiros/{id}").buildAndExpand(dto.id()).toUri();
         return ResponseEntity.created(uri).body(dto);
     }
@@ -60,11 +56,10 @@ public class BarbeiroController {
     // ================================================================
     @GetMapping("/equipe")
     public ResponseEntity<List<DetalhamentoBarbeiroDTO>> listarEquipe() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Barbeiro dono = service.buscarPorEmail(email);
+        Barbeiro donoLogado = (Barbeiro) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        // O Service já retorna a lista de DTOs pronta
-        return ResponseEntity.ok(service.listarEquipe(dono.getId()));
+
+        return ResponseEntity.ok(service.listarEquipe(donoLogado.getId()));
     }
 
     // ================================================================
@@ -72,10 +67,10 @@ public class BarbeiroController {
     // ================================================================
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(@PathVariable Long id) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Barbeiro usuarioLogado = service.buscarPorEmail(email);
+        Barbeiro donoLogado = (Barbeiro) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        service.inativar(id, usuarioLogado.getId());
+
+        service.inativar(id, donoLogado.getId());
 
         return ResponseEntity.noContent().build();
     }
@@ -96,10 +91,11 @@ public class BarbeiroController {
     @PutMapping("/meus-dados")
     public ResponseEntity<DetalhamentoBarbeiroDTO> atualizarPerfil(
             @RequestBody @Valid AtualizacaoBarbeiroDTO dados,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal Barbeiro barbeiroLogado) {
 
-        // O Service cuida da atualização e já devolve o DTO atualizado
-        var response = service.atualizarPerfil(userDetails.getUsername(), dados);
+
+        // Passamos o ID (Long) em vez do Username (String)
+        var response = service.atualizarPerfil(barbeiroLogado.getId(), dados);
 
         return ResponseEntity.ok(response);
     }
@@ -108,12 +104,10 @@ public class BarbeiroController {
     // ================================================================
     @GetMapping("/me")
     public ResponseEntity<DetalhamentoBarbeiroDTO> buscarMeuPerfil() {
-        // Pega o e-mail do Token JWT
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // Busca no banco para garantir que o 'plano' venha atualizado pelo Webhook
-        Barbeiro barbeiro = service.buscarPorEmail(email);
+        Barbeiro donoLogado = (Barbeiro) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        return ResponseEntity.ok(new DetalhamentoBarbeiroDTO(barbeiro));
+
+        return ResponseEntity.ok(new DetalhamentoBarbeiroDTO(donoLogado));
     }
 }
