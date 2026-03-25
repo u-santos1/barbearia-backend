@@ -31,7 +31,7 @@ public class BarbeiroService {
 
     // --- CADASTRAR DONO ---
     @Transactional
-    public Barbeiro cadastrarDono(CadastroBarbeiroDTO dados) {
+    public DetalhamentoBarbeiroDTO cadastrarDono(CadastroBarbeiroDTO dados) {
         if (repository.existsByEmail(dados.email())) {
             throw new RegraDeNegocioException("E-mail já em uso.");
         }
@@ -49,12 +49,12 @@ public class BarbeiroService {
         barbeiro.setComissaoPorcentagem(new BigDecimal("100.00")); // Dono ganha tudo do próprio corte
         barbeiro.setAtivo(true);
 
-        return repository.save(barbeiro);
+        return new DetalhamentoBarbeiroDTO(barbeiro);
     }
 
     // --- CADASTRAR FUNCIONÁRIO ---
     @Transactional
-    public Barbeiro cadastrarFuncionario(CadastroBarbeiroDTO dados, Long idDono) {
+    public DetalhamentoBarbeiroDTO cadastrarFuncionario(CadastroBarbeiroDTO dados, Long idDono) {
         Barbeiro dono = repository.findById(idDono)
                 .orElseThrow(() -> new RegraDeNegocioException("Dono não encontrado"));
 
@@ -102,7 +102,7 @@ public class BarbeiroService {
         // 3. Correção: Funcionário NÃO tem plano, ele herda o acesso do dono.
         novo.setPlano(null);
 
-        return repository.save(novo);
+        return new DetalhamentoBarbeiroDTO(novo);
     }
 
     // --- LISTAGEM ADMIN (Ver tudo da loja) ---
