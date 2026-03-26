@@ -26,7 +26,8 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     // 2. CONTROLE DE PLANO E LIMITES
     // =========================================================================
     // Conta quantos funcionários um dono tem (para bloquear cadastro no plano SOLO)
-    long countByDonoId(Long idDono);
+
+    long countByDonoIdAndAtivoTrue(Long idDono);
 
     // =========================================================================
     // 3. CONSULTAS SAAS (BLINDADAS POR LOJA)

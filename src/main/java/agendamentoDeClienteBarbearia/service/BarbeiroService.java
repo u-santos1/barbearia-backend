@@ -150,7 +150,6 @@ public class BarbeiroService {
     }
 
     // --- MÉTODOS AUXILIARES ---
-
     private void validarLimitesDoPlano(Barbeiro dono) {
         long diasDeUso = 0;
         if (dono.getCreatedAt() != null) {
@@ -161,9 +160,18 @@ public class BarbeiroService {
         boolean aindaEstaEmTeste = diasDeUso <= 15;
         boolean ehPlanoMulti = (dono.getPlano() == TipoPlano.MULTI);
 
-        if (!ehPlanoMulti && !aindaEstaEmTeste) {
-            throw new RegraDeNegocioException("Seu período de teste acabou e o plano SOLO não permite equipe. Faça upgrade para MULTI.");
+        if (ehPlanoMulti){
+            return;
         }
+
+        if (!aindaEstaEmTeste){
+            throw new RegraDeNegocioException("Seu periodo de teste acabou. Faca upgrade para MULTI.");
+        }
+        long totalDeFuncionarios = repository.countByDonoIdAndAtivoTrue(dono.getId());
+        if (totalDeFuncionarios >= 4){
+            throw new RegraDeNegocioException("Limite atingido. O período de teste permite até 3 funcionários. Faça upgrade para MULTI.");
+        }
+
     }
 
     public DetalhamentoBarbeiroDTO buscarPorEmail(String email) {
