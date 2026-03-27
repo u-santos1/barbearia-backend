@@ -145,6 +145,7 @@ public class BarbeiroService {
 
         // Soft Delete (Apenas marca como inativo)
         funcionario.setAtivo(false);
+        repository.save(funcionario);
         // O @Transactional garante o save, mas se quiser ser explícito:
         // repository.save(funcionario);
     }
