@@ -101,8 +101,8 @@ public class BarbeiroService {
 
         // 3. Correção: Funcionário NÃO tem plano, ele herda o acesso do dono.
         novo.setPlano(null);
-
-        return new DetalhamentoBarbeiroDTO(novo);
+        Barbeiro salva = repository.save(novo);
+        return new DetalhamentoBarbeiroDTO(salva);
     }
 
     // --- LISTAGEM ADMIN (Ver tudo da loja) ---
