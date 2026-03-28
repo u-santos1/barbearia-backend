@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
@@ -152,27 +153,33 @@ public class BarbeiroService {
 
     // --- MÉTODOS AUXILIARES ---
     private void validarLimitesDoPlano(Barbeiro dono) {
-        long diasDeUso = 0;
-        if (dono.getCreatedAt() != null) {
-            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now());
-        }
-
-        // Regra: 15 dias de teste grátis OU Plano Multi pago
-        boolean aindaEstaEmTeste = diasDeUso <= 15;
-        boolean ehPlanoMulti = (dono.getPlano() == TipoPlano.MULTI);
-
-        if (ehPlanoMulti){
+        // 1. O VIP passa direto (economiza CPU)
+        if (dono.getPlano() == TipoPlano.MULTI) {
             return;
         }
 
-        if (!aindaEstaEmTeste){
-            throw new RegraDeNegocioException("Seu periodo de teste acabou. Faca upgrade para MULTI.");
-        }
-        long totalDeFuncionarios = repository.countByDonoIdAndAtivoTrue(dono.getId());
-        if (totalDeFuncionarios >= 4){
-            throw new RegraDeNegocioException("Limite atingido. O período de teste permite até 3 funcionários. Faça upgrade para MULTI.");
+        // 2. Proteção de fuso horário brasileiro
+        ZoneId fusoBrasil = ZoneId.of("America/Sao_Paulo");
+        long diasDeUso = 0;
+
+        if (dono.getCreatedAt() != null) {
+            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now(fusoBrasil));
         }
 
+        boolean aindaEstaEmTeste = diasDeUso <= 15;
+
+        // 3. Guilhotina do tempo
+        if (!aindaEstaEmTeste) {
+            throw new RegraDeNegocioException("Seu período de teste acabou. Faça upgrade para MULTI.");
+        }
+
+        // 4. Guilhotina da quantidade de funcionários
+        long totalDeFuncionarios = repository.countByDonoIdAndAtivoTrue(dono.getId());
+
+        // Se ele já tem 3, não pode cadastrar o 4º
+        if (totalDeFuncionarios >= 3) {
+            throw new RegraDeNegocioException("Limite atingido. O plano SOLO permite até 3 funcionários. Faça upgrade para MULTI.");
+        }
     }
 
     @Transactional(readOnly = true)
