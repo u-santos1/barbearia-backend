@@ -27,7 +27,9 @@ public class ServicoService {
     // ... (Seus métodos cadastrar, atualizar, excluir mantidos aqui - lógica do DonoLogado permanece)
 
     @Transactional
-    public DetalhamentoServicoDTO cadastrar(CadastroServicoDTO dados, Barbeiro dono) {
+    public DetalhamentoServicoDTO cadastrar(CadastroServicoDTO dados, String emailLogado) {
+        Barbeiro dono = barbeiroRepository.findByEmail(emailLogado)
+                .orElseThrow(() -> new RegraDeNegocioException("Dono da barbearia não encontrado."));
         var servico = new Servico();
 
         // Transfira os dados do DTO para a Entidade manualmente

@@ -49,8 +49,9 @@ public class BarbeiroService {
         barbeiro.setPlano(TipoPlano.SOLO); // O dono começa com plano SOLO (ou o que vier no DTO)
         barbeiro.setComissaoPorcentagem(new BigDecimal("100.00")); // Dono ganha tudo do próprio corte
         barbeiro.setAtivo(true);
+        Barbeiro salvo = repository.save(barbeiro);
 
-        return new DetalhamentoBarbeiroDTO(barbeiro);
+        return new DetalhamentoBarbeiroDTO(salvo);
     }
 
     // --- CADASTRAR FUNCIONÁRIO ---
@@ -147,12 +148,11 @@ public class BarbeiroService {
         // Soft Delete (Apenas marca como inativo)
         funcionario.setAtivo(false);
         repository.save(funcionario);
-        // O @Transactional garante o save, mas se quiser ser explícito:
-        // repository.save(funcionario);
+
     }
 
     // --- MÉTODOS AUXILIARES ---
-    private void validarLimitesDoPlano(Barbeiro dono) {
+     void validarLimitesDoPlano(Barbeiro dono) {
         // 1. O VIP passa direto (economiza CPU)
         if (dono.getPlano() == TipoPlano.MULTI) {
             return;
@@ -186,6 +186,12 @@ public class BarbeiroService {
     public DetalhamentoBarbeiroDTO buscarPorEmail(String email) {
         Barbeiro barbeiro = repository.findByEmail(email)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
+        return new DetalhamentoBarbeiroDTO(barbeiro);
+    }
+    @Transactional(readOnly = true)
+    public DetalhamentoBarbeiroDTO buscarPorId(Long id){
+        Barbeiro barbeiro = repository.findById(id)
+                .orElseThrow(() -> new RegraDeNegocioException("Id de usuario nao encontrado"));
         return new DetalhamentoBarbeiroDTO(barbeiro);
     }
 
