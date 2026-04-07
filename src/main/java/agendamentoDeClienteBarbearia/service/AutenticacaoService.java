@@ -83,7 +83,9 @@ public class AutenticacaoService implements UserDetailsService {
                     logado.getNome(),
                     logado.getEmail(),
                     logado.getPerfil() != null ? logado.getPerfil().name() : "BARBEIRO",
-                    nomeBarbearia
+                    nomeBarbearia,
+                    logado.getPlano() != null ? logado.getPlano().name() : "SOLO",
+                    logado.getCreatedAt()
             );
 
         } catch (BadCredentialsException e) {
