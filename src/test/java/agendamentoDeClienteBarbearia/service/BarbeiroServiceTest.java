@@ -30,7 +30,7 @@ public class BarbeiroServiceTest {
 
         Barbeiro dono = new Barbeiro();
         dono.setId(1L);
-        dono.setPlano(TipoPlano.SOLO);
+        dono.setPlano(TipoPlano.MULTI);
 
         dono.setCreatedAt(LocalDateTime.now().minusDays(5));
 

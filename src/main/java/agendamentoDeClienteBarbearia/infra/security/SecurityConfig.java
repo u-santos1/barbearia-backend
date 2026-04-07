@@ -47,10 +47,7 @@ public class SecurityConfig {
                     // Libera requisições OPTIONS (necessário para o navegador verificar permissões)
                     req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
 
-                    // --- DOCUMENTAÇÃO (Swagger) ---
 
-
-                    // --- LOGIN (Barbeiro/Admin) ---
 
 
                     req.requestMatchers("/auth/**").permitAll();
@@ -108,7 +105,12 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Permite qualquer origem (Frontend)
-        configuration.setAllowedOrigins(List.of("https://barbearia-frontend-rose.vercel.app"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "https://barbearia-frontend-rose.vercel.app",
+                "https://barbearia-frontend-9aynanzh7-u-santos1s-projects.vercel.app",
+                "http://127.0.0.1:5500",
+                "http://localhost:3000"
+        ));
 
         // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
