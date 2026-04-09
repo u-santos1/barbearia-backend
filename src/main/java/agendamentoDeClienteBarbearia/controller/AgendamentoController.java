@@ -62,8 +62,8 @@ public class AgendamentoController {
     }
 
     @GetMapping("/cliente/{clienteId}")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorCliente(@PathVariable Long clienteId) {
-        return ResponseEntity.ok(service.listarPorCliente(clienteId));
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorCliente(@PathVariable Long clienteId, Authentication authentication) {
+        return ResponseEntity.ok(service.listarPorCliente(clienteId, authentication.getName()));
     }
 
     @GetMapping("/meus")
@@ -131,9 +131,9 @@ public class AgendamentoController {
     }
 
     @GetMapping("/buscar")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarPorTelefone(@RequestParam String telefone) {
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarPorTelefone(@RequestParam String telefone, Authentication authentication) {
         String telLimpo = telefone.replaceAll("\\D", "");
-        var lista = service.buscarPorTelefoneCliente(telLimpo);
+        var lista = service.buscarPorTelefoneCliente(telLimpo, authentication.getName());
         return ResponseEntity.ok(lista);
     }
 
@@ -145,19 +145,20 @@ public class AgendamentoController {
 
     // Novos métodos de histórico que incluímos na revisão anterior para cobertura total
     @GetMapping("/historico/barbeiro/{barbeiroId}")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorBarbeiro(@PathVariable Long barbeiroId) {
-        return ResponseEntity.ok(service.listarPorBarbeiroId(barbeiroId));
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorBarbeiro(@PathVariable Long barbeiroId, Authentication authentication) {
+        return ResponseEntity.ok(service.listarPorBarbeiroId(barbeiroId, authentication.getName()));
     }
 
     @GetMapping("/admin/dono/{donoId}")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorDonoId(@PathVariable Long donoId) {
-        return ResponseEntity.ok(service.listarTodosPorDonoId(donoId));
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorDonoId(Authentication authentication) {
+        return ResponseEntity.ok(service.listarTodosPorDonoId(authentication.getName()));
     }
     @GetMapping("/barbeiro/{barbeiroId}/agenda")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarAgendaPorPeriodo(
             @PathVariable Long barbeiroId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
+            Authentication authentication) {
 
         // Converte LocalDate (dia) para LocalDateTime (dia com hora)
         // Inicio: 00:00:00 do dia inicial
@@ -165,8 +166,8 @@ public class AgendamentoController {
         var lista = service.listarPorBarbeiroEPeriodo(
                 barbeiroId,
                 inicio.atStartOfDay(),
-                fim.atTime(23, 59, 59)
-        );
+                fim.atTime(23, 59, 59),
+                        authentication.getName());
 
         return ResponseEntity.ok(lista);
     }

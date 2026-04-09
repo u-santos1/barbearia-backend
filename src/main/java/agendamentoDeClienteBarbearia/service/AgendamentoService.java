@@ -199,11 +199,11 @@ public class AgendamentoService {
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone) {
+    public List<DetalhamentoAgendamentoDTO> buscarPorTelefoneCliente(String telefone, String emailLogado) {
         try {
             String telLimpo = telefone.replaceAll("\\D", "");
             LocalDateTime agora = LocalDateTime.now(TIMEZONE_BRASIL);
-            return agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telLimpo, agora)
+            return agendamentoRepository.buscarAgendamentosAtivosPorTelefone(telLimpo, agora, emailLogado)
                     .stream().map(DetalhamentoAgendamentoDTO::new).toList();
         } catch (Exception e) {
             log.error("Erro na busca por telefone: {}", e.getMessage());
@@ -225,28 +225,28 @@ public class AgendamentoService {
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorCliente(Long clienteId) {
-        return agendamentoRepository.findByClienteIdOrderByDataHoraInicioDesc(clienteId)
+    public List<DetalhamentoAgendamentoDTO> listarPorCliente(Long clienteId, String emailLogado) {
+        return agendamentoRepository.findByClienteIdOrderByDataHoraInicioDesc(clienteId, emailLogado)
                 .stream().map(DetalhamentoAgendamentoDTO::new).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroId(Long barbeiroId) {
-        return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiroId)
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroId(Long barbeiroId,String emailLogado) {
+        return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiroId, emailLogado)
                 .stream().map(DetalhamentoAgendamentoDTO::new).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim) {
-        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(barbeiroId, inicio, fim)
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim, String emailLogado) {
+        return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(barbeiroId, inicio, fim, emailLogado)
                 .stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarTodosPorDonoId(Long donoId) {
-        return agendamentoRepository.findAllByBarbeiroDonoId(donoId)
+    public List<DetalhamentoAgendamentoDTO> listarTodosPorDonoId(String emailLogado) {
+        return agendamentoRepository.findAllByDonoEmail(emailLogado)
                 .stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();

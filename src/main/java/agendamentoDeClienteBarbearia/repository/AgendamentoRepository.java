@@ -77,12 +77,15 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     LEFT JOIN FETCH a.cliente
     LEFT JOIN FETCH a.servico
     WHERE a.barbeiro.id = :barbeiroId
+    AND a.barbeiro.dono.email = :emailLogado
     AND a.dataHoraInicio BETWEEN :inicio AND :fim
+    ORDER BY a.dataHoraInicio ASC
 """)
     List<Agendamento> findByBarbeiroIdAndDataHoraInicioBetween(
             @Param("barbeiroId") Long barbeiroId,
             @Param("inicio") LocalDateTime inicio,
-            @Param("fim") LocalDateTime fim
+            @Param("fim") LocalDateTime fim,
+            @Param("emailLogado") String emailLogado
     );
 
     // ========================================================================
@@ -90,33 +93,39 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     // ========================================================================
 
     @Query("""
-        SELECT a FROM Agendamento a 
-        JOIN FETCH a.barbeiro 
-        JOIN FETCH a.servico 
-        JOIN FETCH a.cliente
-        WHERE a.cliente.telefone LIKE %:telefone% 
-        AND a.dataHoraInicio > :agora 
-        AND a.status NOT IN (
-            agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO, 
-            agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO_PELO_CLIENTE, 
-            agendamentoDeClienteBarbearia.StatusAgendamento.BLOQUEADO
-        )
-        ORDER BY a.dataHoraInicio ASC
-    """)
+    SELECT a FROM Agendamento a 
+    JOIN FETCH a.barbeiro 
+    JOIN FETCH a.servico 
+    JOIN FETCH a.cliente
+    WHERE a.cliente.telefone LIKE %:telefone% 
+    AND a.dataHoraInicio > :agora 
+    AND a.barbeiro.dono.email = :emailLogado
+    AND a.status NOT IN (
+        agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO, 
+        agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO_PELO_CLIENTE, 
+        agendamentoDeClienteBarbearia.StatusAgendamento.BLOQUEADO
+    )
+    ORDER BY a.dataHoraInicio ASC
+""")
     List<Agendamento> buscarAgendamentosAtivosPorTelefone(
             @Param("telefone") String telefone,
-            @Param("agora") LocalDateTime agora
+            @Param("agora") LocalDateTime agora,
+            @Param("emailLogado") String emailLogado
     );
 
     @Query("""
-        SELECT a FROM Agendamento a
-        JOIN FETCH a.barbeiro
-        JOIN FETCH a.servico
-        JOIN FETCH a.cliente
-        WHERE a.cliente.id = :clienteId
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findByClienteIdOrderByDataHoraInicioDesc(@Param("clienteId") Long clienteId);
+    SELECT a FROM Agendamento a
+    JOIN FETCH a.barbeiro
+    JOIN FETCH a.servico
+    JOIN FETCH a.cliente
+    WHERE a.cliente.id = :clienteId
+    AND a.barbeiro.dono.email = :emailLogado
+    ORDER BY a.dataHoraInicio DESC
+""")
+    List<Agendamento> findByClienteIdOrderByDataHoraInicioDesc(
+            @Param("clienteId") Long clienteId,
+            @Param("emailLogado") String emailLogado
+    );
 
     // ========================================================================
     // 4. MÉTODOS SAAS E SEGURANÇA (🚨 CORRIGIDO AQUI TAMBÉM)
@@ -163,13 +172,17 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     );
 
     @Query("""
-        SELECT a FROM Agendamento a
-        LEFT JOIN FETCH a.cliente
-        LEFT JOIN FETCH a.servico 
-        WHERE a.barbeiro.id = :barbeiroId
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findByBarbeiroIdOrderByDataHoraInicioDesc(@Param("barbeiroId") Long barbeiroId);
+    SELECT a FROM Agendamento a
+    LEFT JOIN FETCH a.cliente
+    LEFT JOIN FETCH a.servico 
+    WHERE a.barbeiro.id = :barbeiroId
+    AND a.barbeiro.dono.email = :emailLogado
+    ORDER BY a.dataHoraInicio DESC
+""")
+    List<Agendamento> findByBarbeiroIdOrderByDataHoraInicioDesc(
+            @Param("barbeiroId") Long barbeiroId,
+            @Param("emailLogado") String emailLogado
+    );
 
     @Query("""
         SELECT a FROM Agendamento a 
@@ -182,15 +195,14 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
 
     // 3. DASHBOARD DONO (🚨 CORRIGIDO: LEFT JOIN no Servico e Cliente)
     @Query("""
-        SELECT DISTINCT a FROM Agendamento a 
-        JOIN FETCH a.barbeiro b
-        LEFT JOIN FETCH b.dono d     
-        LEFT JOIN FETCH a.servico s  
-        LEFT JOIN FETCH a.cliente c  
-        WHERE (d.email = :emailDono OR b.email = :emailDono)
-        ORDER BY a.dataHoraInicio DESC
-    """)
-    List<Agendamento> findAllByDonoEmail(@Param("emailDono") String emailDono);
+    SELECT a FROM Agendamento a 
+    LEFT JOIN FETCH a.cliente
+    LEFT JOIN FETCH a.servico
+    LEFT JOIN FETCH a.barbeiro
+    WHERE a.barbeiro.dono.email = :emailLogado
+    ORDER BY a.dataHoraInicio DESC
+""")
+    List<Agendamento> findAllByDonoEmail(@Param("emailLogado") String emailLogado);
 
     @Query("SELECT a FROM Agendamento a WHERE a.id = :id AND a.barbeiro.dono.email = :emailDono")
     Optional<Agendamento> findByIdAndDonoEmail(Long id, String emailDono);
