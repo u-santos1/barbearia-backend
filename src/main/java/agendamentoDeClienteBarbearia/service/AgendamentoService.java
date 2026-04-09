@@ -9,6 +9,9 @@ import agendamentoDeClienteBarbearia.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,10 +98,11 @@ public class AgendamentoService {
 
     // --- 2. STATUS E CANCELAMENTO ---
     @Transactional
-    public void cancelar(Long id) {
+    @PreAuthorize("@securityService.isDonoDoAgendamento(#id, authentication.name)")
+    public void cancelar(Long id,String emailLogado) {
         log.info("Processando cancelamento para ID: {}", id);
-        Agendamento agendamento = agendamentoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
+        Agendamento agendamento = agendamentoRepository.findByIdAndDonoEmail(id,emailLogado)
+                .orElseThrow(() -> new AccessDeniedException("Agendamento não encontrado."));
 
         if (agendamento.getCliente() == null) {
             agendamentoRepository.delete(agendamento);
@@ -110,8 +114,9 @@ public class AgendamentoService {
     }
 
     @Transactional
-    public void cancelarPeloBarbeiro(Long id) {
-        this.cancelar(id);
+    @PreAuthorize("@securityService.isBarbeiroDoAgendamento(#id, authentication.name) or hasRole('DONO')")
+    public void cancelarPeloBarbeiro(Long id,String emailLogado) {
+        this.cancelar(id, emailLogado);
     }
 
     @Transactional
@@ -241,6 +246,15 @@ public class AgendamentoService {
                 .stream()
                 .map(DetalhamentoAgendamentoDTO::new)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    @PostAuthorize("returnObject.barbeiro.dono.email == authentication.name")
+    public DetalhamentoAgendamentoDTO buscarPorId(Long id) {
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
+
+        return new DetalhamentoAgendamentoDTO(agendamento);
     }
 
     // --- 5. FINANCEIRO ---

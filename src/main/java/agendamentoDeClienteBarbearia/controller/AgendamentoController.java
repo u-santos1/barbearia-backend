@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -66,14 +67,14 @@ public class AgendamentoController {
     // --- AÇÕES ---
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> cancelar(@PathVariable Long id) {
-        service.cancelar(id);
+    public ResponseEntity<Void> cancelar(@PathVariable Long id, Authentication authentication) {
+        service.cancelar(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}/barbeiro")
-    public ResponseEntity<Void> cancelarPeloBarbeiro(@PathVariable Long id) {
-        service.cancelarPeloBarbeiro(id);
+    public ResponseEntity<Void> cancelarPeloBarbeiro(@PathVariable Long id, Authentication authentication) {
+        service.cancelarPeloBarbeiro(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -129,8 +130,8 @@ public class AgendamentoController {
     }
 
     @DeleteMapping("/cliente/{id}")
-    public ResponseEntity<Void> cancelarPeloCliente(@PathVariable Long id) {
-        service.cancelar(id);
+    public ResponseEntity<Void> cancelarPeloCliente(@PathVariable Long id, Authentication authentication) {
+        service.cancelar(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 

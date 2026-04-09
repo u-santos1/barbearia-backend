@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> {
 
@@ -190,5 +191,8 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
         ORDER BY a.dataHoraInicio DESC
     """)
     List<Agendamento> findAllByDonoEmail(@Param("emailDono") String emailDono);
+
+    @Query("SELECT a FROM Agendamento a WHERE a.id = :id AND a.barbeiro.dono.email = :emailDono")
+    Optional<Agendamento> findByIdAndDonoEmail(Long id, String emailDono);
 }
 
