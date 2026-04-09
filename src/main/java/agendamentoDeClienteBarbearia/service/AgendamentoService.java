@@ -120,13 +120,17 @@ public class AgendamentoService {
     }
 
     @Transactional
-    public void confirmar(Long id) { alterarStatus(id, StatusAgendamento.CONFIRMADO); }
+    public void confirmar(Long id, String emailLogado) {
+        alterarStatus(id, StatusAgendamento.CONFIRMADO, emailLogado);
+    }
 
     @Transactional
-    public void concluir(Long id) { alterarStatus(id, StatusAgendamento.CONCLUIDO); }
+    public void concluir(Long id, String emailLogado) {
+        alterarStatus(id, StatusAgendamento.CONCLUIDO, emailLogado);
+    }
 
-    private void alterarStatus(Long id, StatusAgendamento novoStatus) {
-        Agendamento agendamento = agendamentoRepository.findById(id)
+    private void alterarStatus(Long id, StatusAgendamento novoStatus, String emailLogado) {
+        Agendamento agendamento = agendamentoRepository.findByIdAndDonoEmail(id, emailLogado)
                 .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
         agendamento.setStatus(novoStatus);
         agendamentoRepository.save(agendamento);
@@ -250,8 +254,8 @@ public class AgendamentoService {
 
     @Transactional(readOnly = true)
     @PostAuthorize("returnObject.barbeiro.dono.email == authentication.name")
-    public DetalhamentoAgendamentoDTO buscarPorId(Long id) {
-        Agendamento agendamento = agendamentoRepository.findById(id)
+    public DetalhamentoAgendamentoDTO buscarPorId(Long id, String emailLogado) {
+        Agendamento agendamento = agendamentoRepository.findById(id,emailLogado)
                 .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
 
         return new DetalhamentoAgendamentoDTO(agendamento);

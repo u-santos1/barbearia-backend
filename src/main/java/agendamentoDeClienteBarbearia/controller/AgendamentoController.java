@@ -46,6 +46,14 @@ public class AgendamentoController {
         return ResponseEntity.ok(lista);
     }
 
+
+    @GetMapping("/{id}")
+    public ResponseEntity<DetalhamentoAgendamentoDTO> buscarPorId(@PathVariable Long id, Authentication authentication) {
+        // Passamos o e-mail do usuário logado para garantir que ele só veja se for o dono
+        var dto = service.buscarPorId(id, authentication.getName());
+        return ResponseEntity.ok(dto);
+    }
+
     // ADMIN - LISTAR TODOS (Filtrado por Dono - SaaS)
     @GetMapping("/admin/todos")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos() {
@@ -79,14 +87,14 @@ public class AgendamentoController {
     }
 
     @PutMapping("/{id}/confirmar")
-    public ResponseEntity<Void> confirmar(@PathVariable Long id) {
-        service.confirmar(id);
+    public ResponseEntity<Void> confirmar(@PathVariable Long id, Authentication authentication) {
+        service.confirmar(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/concluir")
-    public ResponseEntity<Void> concluir(@PathVariable Long id) {
-        service.concluir(id);
+    public ResponseEntity<Void> concluir(@PathVariable Long id, Authentication authentication) {
+        service.concluir(id, authentication.getName());
         return ResponseEntity.ok().build();
     }
 
