@@ -58,6 +58,7 @@ public class AgendamentoController {
     @GetMapping("/admin/todos")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos() {
         String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
+        System.out.println("🚨 ATENÇÃO: Buscando agendamentos para o dono: [" + emailLogado + "]");
         return ResponseEntity.ok(service.listarTodosDoDono(emailLogado));
     }
 
