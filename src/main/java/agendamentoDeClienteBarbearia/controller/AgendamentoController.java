@@ -55,10 +55,10 @@ public class AgendamentoController {
         return ResponseEntity.ok(dto);
     }
 
-    // ADMIN - LISTAR TODOS (Filtrado por Dono - SaaS)
     @GetMapping("/admin/todos")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@PathVariable Long id) {
-        var lista = service.listarTodosDoDono(id);
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@AuthenticationPrincipal Barbeiro logado) {
+
+        var lista = service.listarTodosDoDono(logado.getId());
         return ResponseEntity.ok(lista);
     }
 
