@@ -99,18 +99,23 @@ public class AgendamentoService {
     // --- 2. STATUS E CANCELAMENTO ---
     @Transactional
     @PreAuthorize("@securityService.isDonoDoAgendamento(#id, authentication.name)")
-    public void cancelar(Long id,String emailLogado) {
+    public void cancelar(Long id, String emailLogado) {
         log.info("Processando cancelamento para ID: {}", id);
-        Agendamento agendamento = agendamentoRepository.findByIdAndDonoEmail(id,emailLogado)
-                .orElseThrow(() -> new AccessDeniedException("Agendamento não encontrado."));
+
+        // Se o @PreAuthorize passou, o agendamento EXISTE e PERTENCE ao usuário.
+        // Usamos o findById padrão para evitar confusão de filtros.
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
 
         if (agendamento.getCliente() == null) {
             agendamentoRepository.delete(agendamento);
+            log.info("Agendamento sem cliente deletado. ID: {}", id);
             return;
         }
 
         agendamento.setStatus(StatusAgendamento.CANCELADO);
         agendamentoRepository.save(agendamento);
+        log.info("Status do agendamento alterado para CANCELADO. ID: {}", id);
     }
 
     @Transactional
