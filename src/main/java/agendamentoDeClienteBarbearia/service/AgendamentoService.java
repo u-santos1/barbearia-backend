@@ -213,8 +213,8 @@ public class AgendamentoService {
 
     // --- 4. LISTAGENS SAAS ---
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(String emailDono) {
-        return agendamentoRepository.findAllByDonoEmail(emailDono)
+    public List<DetalhamentoAgendamentoDTO> listarTodosDoDono(Long id) {
+        return agendamentoRepository.findAllByBarbeiroDonoId(id)
                 .stream().map(DetalhamentoAgendamentoDTO::new).toList();
     }
 

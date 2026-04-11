@@ -5,6 +5,7 @@ import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
 import agendamentoDeClienteBarbearia.dtos.RelatorioFinanceiroCompletoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.AgendamentoService;
 import jakarta.validation.Valid;
@@ -56,10 +57,9 @@ public class AgendamentoController {
 
     // ADMIN - LISTAR TODOS (Filtrado por Dono - SaaS)
     @GetMapping("/admin/todos")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos() {
-        String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
-        System.out.println("🚨 ATENÇÃO: Buscando agendamentos para o dono: [" + emailLogado + "]");
-        return ResponseEntity.ok(service.listarTodosDoDono(emailLogado));
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@PathVariable Long id) {
+        var lista = service.listarTodosDoDono(id);
+        return ResponseEntity.ok(lista);
     }
 
     @GetMapping("/cliente/{clienteId}")
