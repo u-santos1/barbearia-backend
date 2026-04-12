@@ -30,58 +30,39 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // 1. CORS & CSRF
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-
-                // 2. SESSÃO STATELESS (REST API)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // 3. AUTORIZAÇÃO DE ROTAS
                 .authorizeHttpRequests(req -> {
-                    // --- HEALTHCHECK & INFRA (Railway/Actuator) ---
+                    // 1. INFRA E DOCS (Público)
                     req.requestMatchers("/", "/error", "/favicon.ico").permitAll();
-
-
-                    // --- PREFLIGHT (CORS) ---
-                    // Libera requisições OPTIONS (necessário para o navegador verificar permissões)
                     req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
-
-
-
-
-                    req.requestMatchers("/auth/**").permitAll();
-
-
                     req.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
 
+                    // 2. AUTENTICAÇÃO E WEBHOOKS (Público)
+                    req.requestMatchers("/auth/**").permitAll();
                     req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/agendamentos/buscar").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/agendamentos/cliente").permitAll();
-                    req.requestMatchers(HttpMethod.DELETE, "/agendamentos/cliente/**").permitAll();
 
-
-                    // --- LEITURA PÚBLICA (Cliente acessa sem login) ---
-                    // Adicionei "/**" no final para garantir que sub-rotas e query params passem
-                    req.requestMatchers(HttpMethod.GET, "/servicos/**").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/barbeiros/**").permitAll();
+                    // 3. FLUXO DO CLIENTE - AGENDAMENTO (Público)
+                    // Liberamos apenas o que o cliente final precisa para marcar horário
+                    req.requestMatchers(HttpMethod.POST, "/clientes", "/agendamentos").permitAll();
+                    req.requestMatchers(HttpMethod.GET, "/servicos/**", "/barbeiros/**").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade/**").permitAll();
-                    req.requestMatchers(HttpMethod.GET, "/agendamentos/barbeiro/**").permitAll();
 
-                    // --- ESCRITA PÚBLICA (Cliente agenda/cadastra) ---
-                    req.requestMatchers(HttpMethod.POST, "/clientes").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/agendamentos").permitAll();
+                    // Cadastro de barbeiro (Se for público no seu modelo)
+                    req.requestMatchers(HttpMethod.POST, "/barbeiros", "/barbeiros/registro").permitAll();
 
+                    // 4. BLOQUEIO DE SEGURANÇA (AQUI ESTAVA O ERRO)
+                    // Removemos as rotas de 'admin' e 'barbeiro' do permitAll e jogamos para cá
+                    // Agora, qualquer rota que comece com esses prefixos EXIGE token JWT
+                    req.requestMatchers("/agendamentos/admin/**").authenticated();
+                    req.requestMatchers("/agendamentos/barbeiro/**").authenticated();
+                    req.requestMatchers("/agendamentos/cliente/**").authenticated();
+                    req.requestMatchers("/agendamentos/buscar").authenticated();
 
-                    // Cadastro de Barbeiro (Geralmente público para novos cadastros)
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros").permitAll();
-                    req.requestMatchers(HttpMethod.POST, "/barbeiros/registro").permitAll();
-
-                    // --- TUDO O RESTO EXIGE TOKEN JWT ---
+                    // 5. QUALQUER OUTRA ROTA
                     req.anyRequest().authenticated();
                 })
-
-                // 4. FILTRO DE TOKEN
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
