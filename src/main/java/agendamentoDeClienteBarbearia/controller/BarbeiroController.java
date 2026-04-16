@@ -3,10 +3,13 @@ package agendamentoDeClienteBarbearia.controller;
 import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
+import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.service.BarbeiroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +26,7 @@ import java.util.List;
 public class BarbeiroController {
 
     private final BarbeiroService service;
+    private final BarbeiroRepository barbeiroRepository;
 
     // ================================================================
     // 1. CADASTRO DE DONO (Cria uma nova Barbearia/Conta)
@@ -109,5 +113,11 @@ public class BarbeiroController {
 
 
         return ResponseEntity.ok(new DetalhamentoBarbeiroDTO(donoLogado));
+    }
+    @GetMapping("/relatorio/barbeiro")
+    public List<RelatorioBarbeiroDTO> relatorio(@RequestParam int mes,
+                                                @RequestParam int ano,
+                                                @AuthenticationPrincipal Barbeiro dono){
+        return service.relatorioMensal(dono.getId(),mes,ano);
     }
 }

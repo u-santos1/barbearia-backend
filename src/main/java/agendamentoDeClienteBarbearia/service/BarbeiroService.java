@@ -5,6 +5,7 @@ import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
@@ -203,4 +204,6 @@ public class BarbeiroService {
         barbeiro.atualizarInformacoes(dados);
         return new DetalhamentoBarbeiroDTO(barbeiro);
     }
+    public List<RelatorioBarbeiroDTO> relatorioMensal(Long donoId, int mes, int ano) {
+        return repository.relatorioMensal(donoId, mes, ano);}
 }

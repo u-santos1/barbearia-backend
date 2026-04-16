@@ -1,5 +1,6 @@
 package agendamentoDeClienteBarbearia.repository;
 
+import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -47,4 +48,36 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     // Útil para a tela de "Gerenciar Equipe" do painel administrativo
     @Query("SELECT b FROM Barbeiro b WHERE b.dono.id = :donoId AND b.ativo = true")
     List<Barbeiro> findAllByDonoId(@Param("donoId") Long donoId);
+
+    @Query(
+            """
+                    SELECT new agendamentoDeClienteBarbearia.dtosResponse(
+                    b.id,
+                    b.nome,
+                    COUNT(a),
+                    (SELECT COUNT(ac) FROM Agendameto ac 
+                    WHERE ac.barbeiro = b
+                    AND ac.status = 'CANCELADO' 
+                    AND MONTH (ac.dataHoraInicio) = :mes
+                    AND YEAR(ac.dataHoraInicio) = :ano),
+                    COALESCE(SUM(a.valorCobrado), 0),
+                    COALESCE(SUM(a.valorBarbeiro), 0
+                    )
+                    FROM Barbeiro b
+                    LEFT JOIN Agendamento a 
+                    ON a.barbeiro = b 
+                    AND MONTH(a.dataHoraInicio) = :mes
+                    AND YEAR(a.dataHoraInicio) = :ano
+                    AND a.status != 'CANCELADO'
+                    WHERE b.dono.id = :donoId
+                    GROUP BY b.id, b.nome
+                    ORDER BY COUNT(a) DESC
+                    """
+    )
+    List<RelatorioBarbeiroDTO> relatorioMensal(
+            @Param("donoId") Long donoId,
+            @Param("mes") int mes,
+            @Param("ano") int ano
+    );
+
 }

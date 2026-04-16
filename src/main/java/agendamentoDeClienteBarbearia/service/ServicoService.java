@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Servico;
