@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "tb_agendamentos", indexes = {
@@ -29,11 +30,11 @@ public class Agendamento {
     private Barbeiro barbeiro;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = true) // <--- MUDAR PARA TRUE
+    @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "servico_id", nullable = true) // <--- MUDAR PARA TRUE
+    @JoinColumn(name = "servico_id", nullable = true)
     private Servico servico;
 
     @Column(nullable = false)
@@ -61,7 +62,17 @@ public class Agendamento {
     @Column(length = 20, nullable = false)
     private StatusAgendamento status;
 
+    public boolean estaDentroDoExpediente(LocalDateTime inicio, LocalDateTime fim) {
+        LocalDateTime abertura = this.dataHoraInicio;
+        LocalDateTime fechamento = this.dataHoraFim;
+
+        return !inicio.toLocalTime().isBefore(LocalTime.from(abertura)) &&
+                !fim.toLocalTime().isAfter(LocalTime.from(fechamento));
+    }
+
     // Controle de concorrência JPA
     @Version
     private Long version;
+
+
 }

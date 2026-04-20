@@ -39,14 +39,14 @@ public class Barbeiro implements UserDetails {
     @Column(unique = true, nullable = false, length = 150)
     private String email;
 
-    @Column(nullable = false) // Senha encriptada é longa, deixe 255 padrão
+    @Column(nullable = false)
     private String senha;
 
-    @ManyToOne(fetch = FetchType.LAZY) // Evita carregar o dono sempre que carregar o barbeiro
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dono_id")
     private Barbeiro dono;
 
-    // Use BigDecimal para porcentagem financeira para evitar erros como 0.1 + 0.2 = 0.300000004
+
     @Column(name = "comissao_porcentagem", precision = 5, scale = 2)
     private BigDecimal comissaoPorcentagem = new BigDecimal("50.00");
 
@@ -69,7 +69,7 @@ public class Barbeiro implements UserDetails {
 
     private String tokenPushNotification;
 
-    @CreationTimestamp // Preenche a data/hora automaticamente ao salvar
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     private String barbeariaNome;
@@ -79,7 +79,7 @@ public class Barbeiro implements UserDetails {
     private String instagramUrl;
     private String mensagemOla;
 
-    // Otimização: Authorities geralmente não mudam dinamicamente por request
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         if (this.perfil == null) return Collections.emptyList();
@@ -130,7 +130,7 @@ public class Barbeiro implements UserDetails {
         if (this == o) return true;
         if (!(o instanceof Barbeiro)) return false;
         Barbeiro other = (Barbeiro) o;
-        // Usa getters para garantir que o Proxy carregue o ID
+
         return getId() != null && getId().equals(other.getId());
     }
 

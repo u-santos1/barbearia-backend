@@ -38,7 +38,7 @@ public class Cliente {
     @JoinColumn(name = "dono_id", nullable = false) // Cliente SEMPRE pertence a alguém
     private Barbeiro dono;
 
-    // Construtor Limpo (Sem DTO) - Quem chama converte os dados
+
     public Cliente(String nome, String email, String telefone, Barbeiro dono) {
         this.nome = nome;
         this.email = email;
