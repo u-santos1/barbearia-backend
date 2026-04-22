@@ -1,14 +1,10 @@
 package agendamentoDeClienteBarbearia.dtos;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
+import jakarta.validation.constraints.*;
 
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size; // <--- Importante adicionar
 
 public record CadastroBarbeiroDTO(
 
@@ -25,6 +21,10 @@ public record CadastroBarbeiroDTO(
 
         @NotBlank(message = "A especialidade é obrigatória")
         String especialidade, // Ex: "Corte", "Barba", "Colorimetria"
+
+        @NotBlank(message = "O WhatsApp de contato é obrigatório")
+        @Pattern(regexp = "\\d{10,11}", message = "O WhatsApp deve conter apenas números, entre 10 e 11 dígitos (com DDD)")
+        String whatsappContato,
 
         Boolean vaiCortarCabelo,
              // Para saber se agenda serviços
