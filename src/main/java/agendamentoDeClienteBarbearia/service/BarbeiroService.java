@@ -80,6 +80,7 @@ public class BarbeiroService {
 
             expedienteRepository.saveAll(expedientes);
         }
+        expedienteRepository.saveAll(expedientes);
     }
 
     // --- CADASTRAR FUNCIONÁRIO ---
