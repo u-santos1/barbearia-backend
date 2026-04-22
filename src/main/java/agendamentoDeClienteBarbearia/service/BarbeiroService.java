@@ -74,12 +74,12 @@ public class BarbeiroService {
             e.setFechamento(LocalTime.of(18, 0));
             e.setAlmocoInicio(LocalTime.of(12, 0));
             e.setAlmocoFim(LocalTime.of(13, 0));
-            boolean diaUltil = (i < 7);
-            e.setAtivo(diaUltil);
-            e.setTrabalha(diaUltil);
+
+            boolean diaUtil = (i < 7);
+            e.setAtivo(diaUtil);
+            e.setTrabalha(diaUtil);
 
             expedientes.add(e);
-
         }
         expedienteRepository.saveAll(expedientes);
     }
