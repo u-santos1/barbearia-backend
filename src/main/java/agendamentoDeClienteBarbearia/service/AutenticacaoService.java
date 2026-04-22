@@ -82,6 +82,7 @@ public class AutenticacaoService implements UserDetailsService {
                     logado.getId(),
                     logado.getNome(),
                     logado.getEmail(),
+                    logado.getWhatsappContato(),
                     logado.getPerfil() != null ? logado.getPerfil().name() : "BARBEIRO",
                     nomeBarbearia,
                     logado.getPlano() != null ? logado.getPlano().name() : "SOLO",

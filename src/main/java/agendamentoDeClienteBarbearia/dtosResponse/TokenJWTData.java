@@ -8,7 +8,8 @@ public record TokenJWTData(
         Long id,        // Necessário para buscar "meus agendamentos"
         String nome,
         String email,
-        String perfil,   // Necessário para o Front saber se mostra o Dashboard de Dono
+        String perfil,// Necessário para o Front saber se mostra o Dashboard de Dono
+        String whatsappContato,
         String barbeariaNome, // Para mostrar no topo do painel
         String plano,
         LocalDateTime createdAt
