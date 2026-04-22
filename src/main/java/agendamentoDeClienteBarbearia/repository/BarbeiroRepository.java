@@ -50,7 +50,7 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     List<Barbeiro> findAllByDonoId(@Param("donoId") Long donoId);
 
     @Query("""
-        SELECT new agendamentoDeClienteBarbearia.SEU_PACOTE.RelatorioBarbeiroDTO(
+        SELECT new agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO(
             b.id,
             b.nome,
             COUNT(a),
@@ -66,7 +66,7 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
         LEFT JOIN Agendamento a 
             ON a.barbeiro = b 
             AND MONTH(a.dataHoraInicio) = :mes
-            AND YEAR(a.dataHoraInicio) = :ano
+            AND YEAR(a.dataHoraInicio) = :ano 
             AND a.status != 'CANCELADO'
         WHERE b.dono.id = :donoId
         GROUP BY b.id, b.nome
