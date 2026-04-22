@@ -10,6 +10,7 @@ import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Expediente;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
+import agendamentoDeClienteBarbearia.repository.ExpedienteRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class BarbeiroService {
 
     private final BarbeiroRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final ExpedienteRepository expedienteRepository;
 
     // --- CADASTRAR DONO ---
     @Transactional
@@ -73,6 +75,10 @@ public class BarbeiroService {
             e.setAlmocoInicio(LocalTime.of(12, 0));
             e.setAlmocoFim(LocalTime.of(13, 0));
             e.setAtivo(i < 7);
+
+            expedientes.add(e);
+
+            expedienteRepository.saveAll(expedientes);
         }
     }
 
