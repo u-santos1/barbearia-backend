@@ -49,6 +49,7 @@ public class BarbeiroService {
         barbeiro.setTrabalhaComoBarbeiro(true);
         barbeiro.setPlano(TipoPlano.SOLO); // O dono começa com plano SOLO (ou o que vier no DTO)
         barbeiro.setComissaoPorcentagem(new BigDecimal("100.00")); // Dono ganha tudo do próprio corte
+        barbeiro.setWhatsappContato(barbeiro.getWhatsappContato());
         barbeiro.setAtivo(true);
         Barbeiro salvo = repository.save(barbeiro);
 
