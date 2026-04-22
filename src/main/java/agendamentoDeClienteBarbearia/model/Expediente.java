@@ -35,8 +35,7 @@ public class Expediente {
     @Column(nullable = false)
     private LocalTime abertura;
 
-    @Column(nullable = false)
-    private LocalTime horaInicio;
+
 
     @Column(name = "abertura")
     private LocalTime almocoInicio;
