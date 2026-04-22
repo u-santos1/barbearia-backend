@@ -66,7 +66,7 @@ public class BarbeiroService {
 
     private void criarExpedientePadrao(Barbeiro barbeiro){
         List<Expediente> expedientes = new ArrayList<>();
-        for (int i = 0; i <= 7; i++){
+        for (int i = 1; i <= 7; i++){
             Expediente e = new Expediente();
             e.setBarbeiro(barbeiro);
             e.setDiaSemana(DayOfWeek.of(i));
@@ -78,7 +78,6 @@ public class BarbeiroService {
 
             expedientes.add(e);
 
-            expedienteRepository.saveAll(expedientes);
         }
         expedienteRepository.saveAll(expedientes);
     }
