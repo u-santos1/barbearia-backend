@@ -60,7 +60,6 @@ public class Barbeiro implements UserDetails {
     @Column(nullable = false,length = 20)
     private PerfilAcesso perfil = PerfilAcesso.BARBEIRO;
 
-    @Column(nullable = false)
     private Boolean ativo = true;
 
     @Enumerated(EnumType.STRING)

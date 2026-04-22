@@ -33,7 +33,7 @@ public class Servico {
     @Column(name = "duracao_minutos", nullable = false)
     private Integer duracaoEmMinutos;
 
-    @Column(nullable = false)
+
     private Boolean ativo = true;
 
     @ManyToOne(fetch = FetchType.LAZY) // Lazy é melhor aqui
