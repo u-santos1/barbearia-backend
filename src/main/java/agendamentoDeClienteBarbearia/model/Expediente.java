@@ -36,8 +36,20 @@ public class Expediente {
     private LocalTime abertura;
 
     @Column(nullable = false)
+    private LocalTime horaInicio;
+
+    @Column(nullable = false)
+    private LocalTime almocoInicio;
+
+    @Column(nullable = false)
+    private LocalTime almocoFim;
+
+    @Column(nullable = false)
     private LocalTime fechamento;
 
     @Column(nullable = false)
     private boolean trabalha;
+
+    @Column(nullable = false)
+    private boolean ativo;
 }

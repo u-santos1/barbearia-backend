@@ -8,6 +8,7 @@ import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
+import agendamentoDeClienteBarbearia.model.Expediente;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -17,9 +18,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -39,6 +43,7 @@ public class BarbeiroService {
         }
 
         var barbeiro = new Barbeiro();
+
         barbeiro.setNome(dados.nome().trim());
         barbeiro.setEmail(dados.email().trim().toLowerCase());
         barbeiro.setSenha(passwordEncoder.encode(dados.senha()));
@@ -52,8 +57,23 @@ public class BarbeiroService {
         barbeiro.setWhatsappContato(dados.whatsappContato());
         barbeiro.setAtivo(true);
         Barbeiro salvo = repository.save(barbeiro);
+        criarExpedientePadrao(salvo);
 
         return new DetalhamentoBarbeiroDTO(salvo);
+    }
+
+    private void criarExpedientePadrao(Barbeiro barbeiro){
+        List<Expediente> expedientes = new ArrayList<>();
+        for (int i = 0; i <= 7; i++){
+            Expediente e = new Expediente();
+            e.setBarbeiro(barbeiro);
+            e.setDiaSemana(DayOfWeek.of(i));
+            e.setAbertura(LocalTime.of(9,0));
+            e.setFechamento(LocalTime.of(18, 0));
+            e.setAlmocoInicio(LocalTime.of(12, 0));
+            e.setAlmocoFim(LocalTime.of(13, 0));
+            e.setAtivo(i < 7);
+        }
     }
 
     // --- CADASTRAR FUNCIONÁRIO ---
