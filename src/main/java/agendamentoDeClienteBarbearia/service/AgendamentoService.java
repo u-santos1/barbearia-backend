@@ -126,22 +126,19 @@ public class AgendamentoService {
 
     @Transactional
     public void confirmar(Long id, String emailLogado) {
-        alterarStatus(id, StatusAgendamento.CONFIRMADO, emailLogado);
+        var agendamento = agendamentoRepository.findById(id)
+                        .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
+        agendamento.setStatus(StatusAgendamento.CONFIRMADO);
     }
 
     @Transactional
     public void concluir(Long id, String emailLogado) {
-        alterarStatus(id, StatusAgendamento.CONCLUIDO, emailLogado);
+        var agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
+        agendamento.setStatus(StatusAgendamento.CONCLUIDO);
     }
 
-    private void alterarStatus(Long id, StatusAgendamento novoStatus, String emailLogado) {
-        Agendamento agendamento = agendamentoRepository.findByIdAndDonoEmail(id, emailLogado)
-                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado"));
-        agendamento.setStatus(novoStatus);
-        agendamentoRepository.save(agendamento);
-    }
 
-    // --- 3. BUSCAS E DISPONIBILIDADE (REFATORADO) ---
 
     /**
      * Ponto de entrada para o Controller.
