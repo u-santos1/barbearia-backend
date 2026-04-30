@@ -11,6 +11,7 @@ import agendamentoDeClienteBarbearia.service.ClienteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,6 +90,7 @@ public class ClienteController {
     // ========================================================
     // 3. RECUPERAR ID (Útil para validações no Front)
     // ========================================================
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/recuperar-id")
     public ResponseEntity<Long> recuperarIdPorEmail(@RequestParam String email) {
         Long id = service.buscarIdPorEmail(email);

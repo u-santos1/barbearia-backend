@@ -128,6 +128,11 @@ public class AgendamentoService {
     public void confirmar(Long id, String emailLogado) {
         var agendamento = agendamentoRepository.findById(id)
                         .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
+        if (!agendamento.getBarbeiro().getEmail().equals(emailLogado) &&
+        !agendamento.getBarbeiro().getDono().getEmail().equals(emailLogado))
+        {
+            throw new AccessDeniedException("Acesso negado");
+        }
         agendamento.setStatus(StatusAgendamento.CONFIRMADO);
     }
 
@@ -135,6 +140,11 @@ public class AgendamentoService {
     public void concluir(Long id, String emailLogado) {
         var agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
+        if (!agendamento.getBarbeiro().getEmail().equals(emailLogado) &&
+                !agendamento.getBarbeiro().getDono().getEmail().equals(emailLogado))
+        {
+            throw new AccessDeniedException("Acesso negado");
+        }
         agendamento.setStatus(StatusAgendamento.CONCLUIDO);
     }
 
