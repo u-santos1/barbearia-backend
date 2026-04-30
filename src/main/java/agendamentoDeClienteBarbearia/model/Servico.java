@@ -1,5 +1,6 @@
 package agendamentoDeClienteBarbearia.model;
 
+import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -42,5 +43,22 @@ public class Servico {
 
     public void excluir() {
         this.ativo = false;
+    }
+    public void atualizarInformacoes(CadastroServicoDTO dados) {
+        if (dados.nome() != null && !dados.nome().isBlank()) {
+            this.nome = dados.nome();
+        }
+
+        if (dados.preco() != null) {
+            this.preco = dados.preco();
+        }
+
+        if (dados.duracaoEmMinutos() != null) {
+            this.duracaoEmMinutos = dados.duracaoEmMinutos();
+        }
+
+        if (dados.descricao() != null && !dados.descricao().isBlank()) {
+            this.descricao = dados.descricao();
+        }
     }
 }
