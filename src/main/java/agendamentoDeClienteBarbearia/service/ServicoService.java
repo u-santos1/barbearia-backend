@@ -50,7 +50,7 @@ public class ServicoService {
     @Transactional
     public DetalhamentoServicoDTO atualizar(Long idServico, CadastroServicoDTO dados, Long donoLogadoId) {
 
-        Servico servico = servicoRepository.findByIdAndBarbeiroId(idServico, donoLogadoId)
+        Servico servico = servicoRepository.findByIdAndBarbeiro_Id(idServico, donoLogadoId)
                 .orElseThrow(() -> new EntityNotFoundException("Serviço não encontrado ou você não tem permissão para alterá-lo."));
 
 

@@ -18,6 +18,8 @@ public record CadastroServicoDTO(
         @Positive(message = "O preço deve ser maior que zero")
         BigDecimal preco,
 
+
+
         @NotNull(message = "A duração é obrigatória")
         @Min(value = 15, message = "A duração mínima deve ser de 15 minutos")
         Integer duracaoEmMinutos

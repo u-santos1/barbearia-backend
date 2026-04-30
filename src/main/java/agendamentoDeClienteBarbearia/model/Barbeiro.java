@@ -11,6 +11,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -105,36 +106,31 @@ public class Barbeiro implements UserDetails {
     public boolean isEnabled() { return ativo; }
     // Dentro de Barbeiro.java
     public void atualizarInformacoes(AtualizacaoBarbeiroDTO dados) {
-        if (dados.barbeariaNome() != null && !dados.barbeariaNome().isBlank()) {
+
+
+        if (StringUtils.hasText(dados.barbeariaNome())) {
             this.barbeariaNome = dados.barbeariaNome();
         }
-        if (dados.corPrimaria() != null) {
+
+        if (StringUtils.hasText(dados.corPrimaria())) {
             this.corPrimaria = dados.corPrimaria();
         }
-        if (dados.imagemFundo() != null) {
+
+        if (StringUtils.hasText(dados.imagemFundo())) {
             this.imagemFundo = dados.imagemFundo();
         }
-        if (dados.whatsappContato() != null) {
+
+        if (StringUtils.hasText(dados.whatsappContato())) {
             this.whatsappContato = dados.whatsappContato();
         }
-        if (dados.instagramUrl() != null) {
+
+        if (StringUtils.hasText(dados.instagramUrl())) {
             this.instagramUrl = dados.instagramUrl();
         }
-        if (dados.mensagemOla() != null) {
+
+        if (StringUtils.hasText(dados.mensagemOla())) {
             this.mensagemOla = dados.mensagemOla();
         }
     }
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Barbeiro)) return false;
-        Barbeiro other = (Barbeiro) o;
 
-        return getId() != null && getId().equals(other.getId());
-    }
-
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
 }
