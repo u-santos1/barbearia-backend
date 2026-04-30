@@ -61,7 +61,7 @@ public class TratadorDeErros {
         errorResponse.put("timeStamp", LocalDateTime.now());
         errorResponse.put("status", HttpStatus.TOO_MANY_REQUESTS.value());
         errorResponse.put("error", "Too Many Requests");
-        errorResponse.put("message", exception.getMessage());
+        errorResponse.put("message", exception.getMessage());return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
     }
 
     // DTOs internos para a resposta de erro
