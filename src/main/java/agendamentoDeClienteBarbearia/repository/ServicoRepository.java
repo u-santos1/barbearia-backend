@@ -21,5 +21,5 @@ public interface ServicoRepository extends JpaRepository<Servico, Long> {
     @Query("SELECT s FROM Servico s WHERE s.dono.email = :email AND s.ativo = true")
     List<Servico> findAllByDonoEmail(@Param("email") String email);
 
-    Optional<Servico> findByIdAndBarbeiro_Id(Long id, Long barbeiroId);
+    Optional<Servico> findByIdAndDonoId(Long id, Long donoId);
 }
