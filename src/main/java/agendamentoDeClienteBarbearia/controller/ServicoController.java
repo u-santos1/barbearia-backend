@@ -10,6 +10,7 @@ import agendamentoDeClienteBarbearia.service.ServicoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -22,8 +23,6 @@ import java.util.List;
 public class ServicoController {
 
     private final ServicoService service;
-    private final BarbeiroService barbeiroService;
-    // 🚨 REMOVIDO: private final ServicoRepository repository; (Controller não deve tocar em Repository)
 
     @PostMapping
     public ResponseEntity<DetalhamentoServicoDTO> cadastrar(@RequestBody @Valid CadastroServicoDTO dados, UriComponentsBuilder uriBuilder) {
@@ -40,8 +39,14 @@ public class ServicoController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<DetalhamentoServicoDTO> atualizar(@PathVariable Long id, @RequestBody @Valid CadastroServicoDTO dados) {
-        var dto = service.atualizar(id, dados);
+    public ResponseEntity<DetalhamentoServicoDTO> atualizar(
+            @PathVariable Long id,
+            @RequestBody @Valid CadastroServicoDTO dados,
+            @AuthenticationPrincipal Barbeiro barbeiroLogado) {
+
+        // Passamos tanto o ID do serviço quanto o ID de quem está tentando alterar
+        var dto = service.atualizar(id, dados, barbeiroLogado.getId());
+
         return ResponseEntity.ok(dto);
     }
 

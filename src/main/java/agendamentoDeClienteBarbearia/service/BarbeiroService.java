@@ -4,6 +4,7 @@ import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.BarbeiroPublicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
@@ -147,16 +148,16 @@ public class BarbeiroService {
 
     // --- LISTAGEM PÚBLICA (FRONTEND) ---
     @Transactional(readOnly = true)
-    public List<DetalhamentoBarbeiroDTO> listarPorLoja(Long lojaId) {
+    public List<BarbeiroPublicoDTO> listarPorLoja(Long lojaId) {
         if (lojaId == null) {
             // 🚨 CORREÇÃO DE SEGURANÇA: Nunca retorne todos os usuários do banco
             // Se não tem ID da loja, retorna lista vazia ou erro.
             return Collections.emptyList();
         }
 
-        // Busca Dono e Funcionários daquela loja específica
+        // Busca Dono e Funcionários daquela loja específica e converte para o DTO seguro
         return repository.findAllByLoja(lojaId).stream()
-                .map(DetalhamentoBarbeiroDTO::new)
+                .map(BarbeiroPublicoDTO::new) // <-- Aqui é a mágica que esconde os dados sensíveis
                 .toList();
     }
 

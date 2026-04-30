@@ -8,6 +8,7 @@ import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Servico;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.repository.ServicoRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j; // Adicionado Log
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +24,7 @@ public class ServicoService {
 
     private final ServicoRepository repository;
     private final BarbeiroRepository barbeiroRepository;
+    private final ServicoRepository servicoRepository;
     // Removi BarbeiroService para evitar Dependência Circular, usamos o Repository direto
 
     // ... (Seus métodos cadastrar, atualizar, excluir mantidos aqui - lógica do DonoLogado permanece)
@@ -46,9 +48,19 @@ public class ServicoService {
     }
 
     @Transactional
-    public DetalhamentoServicoDTO atualizar(Long id, CadastroServicoDTO dados) {
-        // ... (Sua implementação existente)
-        return null; // Apenas placeholder para não copiar tudo de novo
+    public DetalhamentoServicoDTO atualizar(Long idServico, CadastroServicoDTO dados, Long donoLogadoId) {
+
+        Servico servico = servicoRepository.findByIdAndBarbeiroId(idServico, donoLogadoId)
+                .orElseThrow(() -> new EntityNotFoundException("Serviço não encontrado ou você não tem permissão para alterá-lo."));
+
+
+        servico.atualizarInformacoes(dados);
+
+        // Como o método está anotado com @Transactional, o Spring Data JPA
+        // salva automaticamente no banco ao finalizar a execução. Não precisa de .save()
+
+        // 3. RETORNA O DTO
+        return new DetalhamentoServicoDTO(servico);
     }
 
     @Transactional

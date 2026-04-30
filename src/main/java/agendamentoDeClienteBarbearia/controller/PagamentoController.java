@@ -34,32 +34,26 @@ public class PagamentoController {
     // ========================================================
     @PostMapping("/webhook")
     public ResponseEntity<Void> receberNotificacao(@RequestBody Map<String, Object> payload) {
-        log.info("Webhook recebido: {}", payload);
+        log.info("Webhook recebido do Mercado Pago. Payload parcial: {}", payload);
 
         try {
-            // Lógica robusta para extrair o ID do JSON do Mercado Pago
-            // O formato geralmente é: { "data": { "id": "12345" }, "type": "payment" }
-            if (payload.containsKey("data") && payload.get("data") instanceof Map) {
+            if(payload.containsKey("data") && payload.get("data") instanceof Map){
                 @SuppressWarnings("unchecked")
-                Map<String, Object> data = (Map<String, Object>) payload.get("data");
+                        Map<String, Object> data = (Map<String, Object>) payload.get("data");
 
-                if (data.containsKey("id")) {
+                if (data.containsKey("id")){
                     String idStr = String.valueOf(data.get("id"));
                     Long idPagamento = Long.parseLong(idStr);
 
-                    // Chama o processamento no Service
                     service.processarWebhook(idPagamento);
                 }
             }
-            // Caso venha via Query Param (IPN legado), você pode adicionar um fallback aqui
-            // mas o padrão Webhook V1 é o corpo JSON acima.
-
-        } catch (Exception e) {
-            log.error("Erro ao processar webhook", e);
+            return ResponseEntity.ok().build();
         }
-
-        // Sempre retorna 200 OK para o Mercado Pago não reenviar
-        return ResponseEntity.ok().build();
+        catch (Exception e){
+            log.error("Erro CRITICO ao processar webhook do pagamento. O mercado Pago fara retentativa,", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
     @PostMapping("/upgrade")
     public ResponseEntity<RespostaPixDTO> criarPagamento(@RequestBody UpgradeRequestDTO dados) {

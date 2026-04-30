@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,6 +123,7 @@ public class AgendamentoService {
     @PreAuthorize("@securityService.isBarbeiroDoAgendamento(#id, authentication.name) or hasRole('DONO')")
     public void cancelarPeloBarbeiro(Long id,String emailLogado) {
         this.cancelar(id, emailLogado);
+        log.info("[AUDITORIA - AGENDAMENTO] Agendamento ID: {} CANCELADO. Ação realizada por: {}", id, emailLogado);
     }
 
     @Transactional

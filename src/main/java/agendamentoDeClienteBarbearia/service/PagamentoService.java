@@ -2,12 +2,14 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.dtos.RespostaPixDTO;
-import agendamentoDeClienteBarbearia.dtos.UpgradeRequestDTO; // Certifique-se de ter este DTO
+import agendamentoDeClienteBarbearia.dtos.UpgradeRequestDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
+import agendamentoDeClienteBarbearia.model.HistoricoPagamento;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
+import agendamentoDeClienteBarbearia.repository.HistoricoPagamentoRepository;
 import com.mercadopago.MercadoPagoConfig;
-import com.mercadopago.client.common.IdentificationRequest; // Importação necessária
+import com.mercadopago.client.common.IdentificationRequest;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
 import com.mercadopago.client.payment.PaymentPayerRequest;
@@ -20,12 +22,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 
 @Slf4j
 @Service
 public class PagamentoService {
 
+    private final HistoricoPagamentoRepository pagamentoRepository;
     private final BarbeiroRepository barbeiroRepository;
     private final String mpAccessToken;
     private final String webhookUrl;
@@ -34,11 +40,13 @@ public class PagamentoService {
     public PagamentoService(BarbeiroRepository barbeiroRepository,
                             @Value("${mercadopago.access_token}") String token,
                             @Value("${mercadopago.webhook.url}") String webhookUrl,
-                            @Value("${plano.multi.valor:1.00}") BigDecimal valorPlano) { // Valor teste padrão
+                            @Value("${plano.multi.valor:1.00}") BigDecimal valorPlano,
+                            HistoricoPagamentoRepository pagamentoRepository) { // Valor teste padrão
         this.barbeiroRepository = barbeiroRepository;
         this.mpAccessToken = token;
         this.webhookUrl = webhookUrl;
         this.valorPlano = valorPlano;
+        this.pagamentoRepository = pagamentoRepository;
     }
 
     @PostConstruct
@@ -46,6 +54,10 @@ public class PagamentoService {
         MercadoPagoConfig.setAccessToken(mpAccessToken);
         log.info("SDK Mercado Pago inicializado.");
     }
+    private boolean verificarSePagamentoJaFoiProcessado(Long idPagamento){
+        return pagamentoRepository.existsByPagamentoIdMp(idPagamento);
+    }
+
 
     // ========================================================
     // 1. GERA O PIX (AGORA RECEBENDO NOME E CPF)
@@ -116,11 +128,16 @@ public class PagamentoService {
             PaymentClient client = new PaymentClient();
             Payment pagamento = client.get(idPagamento);
 
-            if ("approved".equals(pagamento.getStatus())) {
+            if ("approved".equals(pagamento.getStatus())){
+                if(verificarSePagamentoJaFoiProcessado(idPagamento)){
+                    log.info("O pagamento ID: {} ja foi processado anteriormente. Ignorando evento repetido", idPagamento);
+                    return;
+                }
                 atualizarPlanoUsuario(pagamento);
             }
         } catch (MPException | MPApiException e) {
             log.error("Erro ao consultar pagamento no webhook: {}", idPagamento);
+            throw new RuntimeException("Falha na validacao do pagamento com o Mercado Pago", e);
         }
     }
 
@@ -136,6 +153,12 @@ public class PagamentoService {
                     barbeiroRepository.save(barbeiro);
                     log.info("✅ Plano MULTI ativado: {}", barbeiro.getNome());
                 }
+                HistoricoPagamento historico = new HistoricoPagamento();
+                historico.setPagamentoIdMp(pagamento.getId());
+                historico.setStatus(pagamento.getStatus());
+                historico.setDataProcessamento(LocalDateTime.now());
+
+                pagamentoRepository.save(historico);
             });
         } catch (Exception e) {
             log.error("Erro ao atualizar plano: {}", e.getMessage());
