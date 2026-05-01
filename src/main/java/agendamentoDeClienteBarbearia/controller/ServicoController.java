@@ -1,6 +1,7 @@
 package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
+import agendamentoDeClienteBarbearia.dtos.ResumoDashboardDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
@@ -10,6 +11,7 @@ import agendamentoDeClienteBarbearia.service.ServicoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -77,5 +79,12 @@ public class ServicoController {
         var lista = service.listarComFiltros(barbeiroId, lojaId, emailLogado);
 
         return ResponseEntity.ok(lista);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/resumo/{donoId}")
+    public ResponseEntity<ResumoDashboardDTO> gerarResumo(@PathVariable Long donoId){
+        var dto = service.gerarResumo(donoId);
+        return ResponseEntity.ok(dto);
     }
 }

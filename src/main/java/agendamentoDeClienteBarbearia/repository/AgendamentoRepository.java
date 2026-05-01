@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -206,5 +208,13 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
 
     @Query("SELECT a FROM Agendamento a WHERE a.id = :id AND a.barbeiro.dono.email = :emailDono")
     Optional<Agendamento> findByIdAndDonoEmail(Long id, String emailDono);
+
+
+    @Query("SELECT COUNT(a) FROM Agendamento a WHERE a.barbeiro.dono.id = :donoId AND DATE(a.dataHoraInicio) = :hoje AND a.status NOT IN ('CANCELADO', 'BLOQUEADO')")
+    long contarAgendamentosDeHoje(Long donoId, LocalDate hoje);
+
+
+    @Query("SELECT SUM(a.valorCobrado) FROM Agendamento a WHERE a.barbeiro.dono.id = :donoId AND DATE(a.dataHoraInicio) = :hoje AND a.status = 'CONCLUIDO'")
+    BigDecimal somarFaturamentoDeHoje(Long donoId, LocalDate hoje);
 }
 

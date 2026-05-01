@@ -1,20 +1,26 @@
 package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.dtos.CadastroServicoDTO;
+import agendamentoDeClienteBarbearia.dtos.ResumoDashboardDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoServicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.RelatorioBarbeiroDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Servico;
+import agendamentoDeClienteBarbearia.repository.AgendamentoRepository;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
+import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import agendamentoDeClienteBarbearia.repository.ServicoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j; // Adicionado Log
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -25,6 +31,9 @@ public class ServicoService {
     private final ServicoRepository repository;
     private final BarbeiroRepository barbeiroRepository;
     private final ServicoRepository servicoRepository;
+
+    private final ClienteRepository clienteRepository;
+    private final AgendamentoRepository agendamentoRepository;
     // Removi BarbeiroService para evitar Dependência Circular, usamos o Repository direto
 
     // ... (Seus métodos cadastrar, atualizar, excluir mantidos aqui - lógica do DonoLogado permanece)
@@ -123,5 +132,21 @@ public class ServicoService {
         Barbeiro usuario = barbeiroRepository.findByEmail(email)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado"));
         return (usuario.getDono() != null) ? usuario.getDono() : usuario;
+    }
+
+    @PreAuthorize("@securityService.isDonoDaBarbearia(#donoId, authentication.name) or hasRole('ADMIN')")
+    public ResumoDashboardDTO gerarResumo(Long donoId) {
+        LocalDate hoje = LocalDate.now();
+
+        Long totalClientes = clienteRepository.countByDonoId(donoId);
+        Long agendamentosHoje = agendamentoRepository.contarAgendamentosDeHoje(donoId, hoje);
+        BigDecimal faturamento = agendamentoRepository.somarFaturamentoDeHoje(donoId, hoje);
+
+        if (faturamento == null) faturamento = BigDecimal.ZERO;
+
+        int capacidadeDiaria = 20;
+        int taxa = (int) Math.min(100, Math.round((agendamentosHoje.doubleValue() / capacidadeDiaria) * 100));
+
+        return new ResumoDashboardDTO(agendamentosHoje, totalClientes, faturamento, taxa);
     }
 }

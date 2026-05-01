@@ -1,6 +1,7 @@
 package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.CadastroClienteDTO;
+import agendamentoDeClienteBarbearia.dtos.ResumoDashboardDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoClienteDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;

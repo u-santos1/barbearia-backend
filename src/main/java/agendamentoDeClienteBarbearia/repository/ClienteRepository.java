@@ -29,4 +29,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     // Mantenha apenas se você tiver algum fluxo administrativo global
     Optional<Cliente> findByEmail(String email);
     Optional<Cliente> findByTelefone(String telefone);
+
+    long countByDonoId(Long donoId);
 }
