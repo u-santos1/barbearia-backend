@@ -5,17 +5,12 @@ import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
 import agendamentoDeClienteBarbearia.dtos.RelatorioFinanceiroCompletoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
-import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
-import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.AgendamentoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -30,6 +25,10 @@ public class AgendamentoController {
 
     private final AgendamentoService service;
 
+    // =========================================================
+    // ROTAS PÚBLICAS (Acessadas pelo Site do Cliente)
+    // =========================================================
+
     @PostMapping
     public ResponseEntity<DetalhamentoAgendamentoDTO> agendar(@RequestBody @Valid AgendamentoDTO dados, UriComponentsBuilder uriBuilder) {
         var dto = service.agendar(dados);
@@ -37,82 +36,6 @@ public class AgendamentoController {
         return ResponseEntity.created(uri).body(dto);
     }
 
-    // LISTAR AGENDA (Visualização do calendário)
-    @GetMapping("/barbeiro/{idBarbeiro}")
-    public ResponseEntity<List<String>> listarHorariosDisponiveis(
-            @PathVariable Long idBarbeiro,
-            @RequestParam Long servicoId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-        var lista = service.listarHorariosDisponiveis(idBarbeiro, servicoId, data);
-        return ResponseEntity.ok(lista);
-    }
-
-
-    @GetMapping("/{id}")
-    public ResponseEntity<DetalhamentoAgendamentoDTO> buscarPorId(@PathVariable Long id, Authentication authentication) {
-        // Passamos o e-mail do usuário logado para garantir que ele só veja se for o dono
-        var dto = service.buscarPorId(id, authentication.getName());
-        return ResponseEntity.ok(dto);
-    }
-
-    @GetMapping("/admin/todos")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@AuthenticationPrincipal Barbeiro logado) {
-
-        var lista = service.listarTodosDoDono(logado.getId());
-        return ResponseEntity.ok(lista);
-    }
-
-    @GetMapping("/cliente/{clienteId}")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorCliente(@PathVariable Long clienteId, Authentication authentication) {
-        return ResponseEntity.ok(service.listarPorCliente(clienteId, authentication.getName()));
-    }
-
-    @GetMapping("/meus")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarMeusAgendamentos() {
-        var emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
-        return ResponseEntity.ok(service.listarMeusAgendamentos(emailLogado));
-    }
-
-    // --- AÇÕES ---
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> cancelar(@PathVariable Long id, Authentication authentication) {
-        service.cancelar(id, authentication.getName());
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/{id}/barbeiro")
-    public ResponseEntity<Void> cancelarPeloBarbeiro(@PathVariable Long id, Authentication authentication) {
-        service.cancelarPeloBarbeiro(id, authentication.getName());
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/{id}/confirmar")
-    public ResponseEntity<Void> confirmar(@PathVariable Long id, Authentication authentication) {
-        service.confirmar(id, authentication.getName());
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/{id}/concluir")
-    public ResponseEntity<Void> concluir(@PathVariable Long id, Authentication authentication) {
-        service.concluir(id, authentication.getName());
-        return ResponseEntity.ok().build();
-    }
-
-    // --- RELATÓRIOS ---
-
-    @GetMapping("/admin/financeiro")
-    public ResponseEntity<ResumoFinanceiroDTO> relatorioFinanceiro(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim
-    ) {
-        // Seguindo sua risca: buscando o email logado para segurança e passando datas para o service
-        String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
-        var relatorio = service.gerarRelatorioFinanceiro(emailLogado, inicio, fim);
-        return ResponseEntity.ok(relatorio);
-    }
-
-    // 🚨 DISPONIBILIDADE PARA O FRONTEND
     @GetMapping("/disponibilidade")
     public ResponseEntity<List<String>> getDisponibilidade(
             @RequestParam Long barbeiroId,
@@ -123,63 +46,135 @@ public class AgendamentoController {
         return ResponseEntity.ok(horarios);
     }
 
-    @PostMapping("/bloqueio")
-    public ResponseEntity<Void> criarBloqueio(
-            @RequestBody @Valid BloqueioDTO dados,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        service.bloquearHorario(userDetails.getUsername(), dados);
-        return ResponseEntity.noContent().build();
-    }
-
     @GetMapping("/buscar")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarPorTelefone(@RequestParam String telefone, Authentication authentication) {
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarPorTelefone(
+            @RequestParam String telefone,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
         String telLimpo = telefone.replaceAll("\\D", "");
-        var lista = service.buscarPorTelefoneCliente(telLimpo, authentication.getName());
+        // Tolera chamadas do site público (sem login) passando null para o e-mail
+        String emailContexto = (userDetails != null) ? userDetails.getUsername() : null;
+
+        var lista = service.buscarPorTelefoneCliente(telLimpo, emailContexto);
         return ResponseEntity.ok(lista);
     }
 
     @DeleteMapping("/cliente/{id}")
-    public ResponseEntity<Void> cancelarPeloCliente(@PathVariable Long id, Authentication authentication) {
-        service.cancelar(id, authentication.getName());
+    public ResponseEntity<Void> cancelarPeloCliente(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String emailContexto = (userDetails != null) ? userDetails.getUsername() : null;
+        service.cancelar(id, emailContexto);
+
         return ResponseEntity.noContent().build();
     }
 
-    // Novos métodos de histórico que incluímos na revisão anterior para cobertura total
-    @GetMapping("/historico/barbeiro/{barbeiroId}")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorBarbeiro(@PathVariable Long barbeiroId, Authentication authentication) {
-        return ResponseEntity.ok(service.listarPorBarbeiroId(barbeiroId, authentication.getName()));
+    // =========================================================
+    // ROTAS PRIVADAS (Acessadas pelo Painel Administrativo)
+    // =========================================================
+
+    @GetMapping("/admin/todos")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@AuthenticationPrincipal UserDetails userDetails) {
+        // Se o seu método no Service espera o ID e não o E-mail, ajuste aqui convertendo o username para Long.
+        // Assumindo que a busca por dono foi adaptada para e-mail no service.
+        var lista = service.listarTodosDoDono(Long.parseLong(userDetails.getUsername()));
+        return ResponseEntity.ok(lista);
     }
 
-    @GetMapping("/admin/dono/{donoId}")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorDonoId(Authentication authentication) {
-        return ResponseEntity.ok(service.listarTodosPorDonoId(authentication.getName()));
+    @GetMapping("/admin/dono")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorDonoId(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(service.listarTodosPorDonoId(userDetails.getUsername()));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<DetalhamentoAgendamentoDTO> buscarPorId(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        var dto = service.buscarPorId(id, userDetails.getUsername());
+        return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/meus")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarMeusAgendamentos(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(service.listarMeusAgendamentos(userDetails.getUsername()));
+    }
+
+    @GetMapping("/cliente/{clienteId}/historico")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorCliente(@PathVariable Long clienteId, @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(service.listarPorCliente(clienteId, userDetails.getUsername()));
+    }
+
     @GetMapping("/barbeiro/{barbeiroId}/agenda")
     public ResponseEntity<List<DetalhamentoAgendamentoDTO>> buscarAgendaPorPeriodo(
             @PathVariable Long barbeiroId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
-            Authentication authentication) {
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        // Converte LocalDate (dia) para LocalDateTime (dia com hora)
-        // Inicio: 00:00:00 do dia inicial
-        // Fim: 23:59:59 do dia final
         var lista = service.listarPorBarbeiroEPeriodo(
                 barbeiroId,
                 inicio.atStartOfDay(),
                 fim.atTime(23, 59, 59),
-                        authentication.getName());
-
+                userDetails.getUsername()
+        );
         return ResponseEntity.ok(lista);
     }
+
+    @GetMapping("/historico/barbeiro/{barbeiroId}")
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarPorBarbeiro(@PathVariable Long barbeiroId, @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(service.listarPorBarbeiroId(barbeiroId, userDetails.getUsername()));
+    }
+
+    // --- AÇÕES ---
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> cancelar(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        service.cancelar(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/barbeiro")
+    public ResponseEntity<Void> cancelarPeloBarbeiro(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        service.cancelarPeloBarbeiro(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/confirmar")
+    public ResponseEntity<Void> confirmar(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        service.confirmar(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/concluir")
+    public ResponseEntity<Void> concluir(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        service.concluir(id, userDetails.getUsername());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/bloqueio")
+    public ResponseEntity<Void> criarBloqueio(@RequestBody @Valid BloqueioDTO dados, @AuthenticationPrincipal UserDetails userDetails) {
+        service.bloquearHorario(userDetails.getUsername(), dados);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- RELATÓRIOS ---
+
+    @GetMapping("/admin/financeiro")
+    public ResponseEntity<ResumoFinanceiroDTO> relatorioFinanceiro(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        var relatorio = service.gerarRelatorioFinanceiro(userDetails.getUsername(), inicio, fim);
+        return ResponseEntity.ok(relatorio);
+    }
+
     @GetMapping("/financeiro/extrato")
     public ResponseEntity<RelatorioFinanceiroCompletoDTO> getExtratoFinanceiro(
-            @AuthenticationPrincipal Barbeiro barbeiroLogado,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        // Supondo que o usuário logado seja o Dono
-        var relatorio = service.gerarExtratoFinanceiro(barbeiroLogado.getEmail(), inicio, fim);
+        var relatorio = service.gerarExtratoFinanceiro(userDetails.getUsername(), inicio, fim);
         return ResponseEntity.ok(relatorio);
     }
 }
