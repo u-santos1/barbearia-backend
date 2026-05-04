@@ -234,6 +234,7 @@ public class BarbeiroService {
         barbeiro.atualizarInformacoes(dados);
         return new DetalhamentoBarbeiroDTO(barbeiro);
     }
+    @Transactional
     public List<RelatorioBarbeiroDTO> relatorioMensal(Long donoId, int mes, int ano) {
         return repository.relatorioMensal(donoId, mes, ano);}
 }

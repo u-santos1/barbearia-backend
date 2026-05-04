@@ -24,7 +24,7 @@ import java.util.List;
 public class AgendamentoController {
 
     private final AgendamentoService service;
-
+  
     // =========================================================
     // ROTAS PÚBLICAS (Acessadas pelo Site do Cliente)
     // =========================================================
