@@ -5,6 +5,7 @@ import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
 import agendamentoDeClienteBarbearia.dtos.RelatorioFinanceiroCompletoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.AgendamentoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,10 +76,10 @@ public class AgendamentoController {
     // =========================================================
 
     @GetMapping("/admin/todos")
-    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@AuthenticationPrincipal UserDetails userDetails) {
-        // Se o seu método no Service espera o ID e não o E-mail, ajuste aqui convertendo o username para Long.
-        // Assumindo que a busca por dono foi adaptada para e-mail no service.
-        var lista = service.listarTodosDoDono(Long.parseLong(userDetails.getUsername()));
+    public ResponseEntity<List<DetalhamentoAgendamentoDTO>> listarTodos(@AuthenticationPrincipal Barbeiro barbeiroLogado) {
+
+        var lista = service.listarTodosDoDono(barbeiroLogado.getId());
+
         return ResponseEntity.ok(lista);
     }
 
