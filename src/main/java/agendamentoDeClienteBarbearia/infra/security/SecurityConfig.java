@@ -43,13 +43,18 @@ public class SecurityConfig {
                     req.requestMatchers("/auth/**").permitAll();
                     req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
 
-                    // 3. FLUXO DO CLIENTE - AGENDAMENTO (Público)
-                    // Liberamos apenas o que o cliente final precisa para marcar horário
+                    // 3. FLUXO DO CLIENTE E ROTAS PÚBLICAS
                     req.requestMatchers(HttpMethod.POST, "/clientes", "/agendamentos").permitAll();
+
+                    // --- CORREÇÃO AQUI: Protege as rotas específicas do barbeiro logado PRIMEIRO ---
+                    req.requestMatchers(HttpMethod.GET, "/barbeiros/me").authenticated();
+                    req.requestMatchers(HttpMethod.PUT, "/barbeiros/meus-dados").authenticated();
+
+                    // --- DEPOIS: Libera o restante para o cliente final ---
                     req.requestMatchers(HttpMethod.GET, "/servicos/**", "/barbeiros/**").permitAll();
                     req.requestMatchers(HttpMethod.GET, "/agendamentos/disponibilidade/**").permitAll();
 
-                    // Cadastro de barbeiro (Se for público no seu modelo)
+                    // Cadastro de barbeiro
                     req.requestMatchers(HttpMethod.POST, "/barbeiros", "/barbeiros/registro").permitAll();
 
                     // 4. BLOQUEIO DE SEGURANÇA (AQUI ESTAVA O ERRO)
