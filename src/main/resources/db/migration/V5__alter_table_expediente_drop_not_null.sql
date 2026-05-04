@@ -1,0 +1,2 @@
+ALTER TABLE tb_expediente ALTER COLUMN abertura DROP NOT NULL;
+ALTER TABLE tb_expediente ALTER COLUMN fechamento DROP NOT NULL;

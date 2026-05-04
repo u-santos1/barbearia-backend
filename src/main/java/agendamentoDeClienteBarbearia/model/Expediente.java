@@ -32,7 +32,7 @@ public class Expediente {
     @Column(nullable = false)
     private DayOfWeek diaSemana;
 
-    @Column(nullable = false)
+    @Column
     private LocalTime abertura;
 
 
@@ -43,7 +43,7 @@ public class Expediente {
     @Column(name = "almoco_fim")
     private LocalTime almocoFim;
 
-    @Column(nullable = false)
+    @Column
     private LocalTime fechamento;
 
     @Column(nullable = false)
