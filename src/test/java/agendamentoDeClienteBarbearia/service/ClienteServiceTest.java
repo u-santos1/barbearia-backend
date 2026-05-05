@@ -41,9 +41,8 @@ class ClienteServiceTest {
         // Geralmente: (Nome, Email, Telefone, BarbeiroId)
         CadastroClienteDTO dadosNovos = new CadastroClienteDTO(
                 "João Atualizado",
-                "joao@email.com",  // Email
-                "21999999999",    // Telefone (Agora no lugar certo!)
-                null
+                "21999999999",
+                "test@gmail.com",null,null
         );
 
         // Mocks sincronizados com o Repository SaaS
