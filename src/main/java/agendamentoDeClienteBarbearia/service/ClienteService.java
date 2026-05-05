@@ -5,6 +5,7 @@ import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoClienteDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Cliente;
+import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.repository.ClienteRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,14 +21,18 @@ import java.util.Optional;
 public class ClienteService {
 
     private final ClienteRepository repository;
+    private final BarbeiroRepository barbeiroRepository;
 
     // ========================================================
     // 1. UPSERT INTELIGENTE (Funciona para App e Manual)
     // ========================================================
     @Transactional
-    public DetalhamentoClienteDTO salvar(CadastroClienteDTO dados, Barbeiro donoResponsavel) {
+    public DetalhamentoClienteDTO salvar(CadastroClienteDTO dados, Barbeiro usuarioLogado) {
 
-        // 1. Sanitização
+        // 1. REGRA DE NEGÓCIO: Define quem é o dono
+        Barbeiro donoResponsavel = definirDonoDoCliente(dados.donoId(), usuarioLogado);
+
+        // 2. Sanitização
         String emailInput = (dados.email() != null && !dados.email().isBlank())
                 ? dados.email().trim().toLowerCase() : null;
         String telefoneInput = limparFormatacao(dados.telefone());
@@ -36,21 +41,38 @@ public class ClienteService {
             throw new RegraDeNegocioException("Telefone é obrigatório.");
         }
 
-        // 2. Busca Estratégica (Evita duplicatas globais baseadas no telefone)
-        // Nota: Em SaaS, decidimos se o cliente é único por LOJA ou GLOBAL.
-        // Assumindo GLOBAL (um cliente pode ir em várias barbearias com o mesmo telefone):
-        Optional<Cliente> clienteExistente = repository.findByTelefone(telefoneInput);
+        // 3. Busca Estratégica ISOLADA POR SAAS (A Correção está aqui 👇)
+        Optional<Cliente> clienteExistente = repository.findByTelefoneAndDono(telefoneInput, donoResponsavel);
 
-        // Se achou por telefone, usa ele. Se não, tenta por email (se houver)
         if (clienteExistente.isEmpty() && emailInput != null) {
-            clienteExistente = repository.findByEmail(emailInput);
+            // Busca por email também isolada pelo dono 👇
+            clienteExistente = repository.findByEmailAndDono(emailInput, donoResponsavel);
         }
 
-        // 3. Decisão
+        // 4. Decisão
         if (clienteExistente.isPresent()) {
             return atualizar(clienteExistente.get(), dados.nome(), emailInput, telefoneInput, donoResponsavel);
         } else {
             return criar(dados.nome(), emailInput, telefoneInput, donoResponsavel);
+        }
+    }
+
+    // =============================================================
+    // MÉTODO AUXILIAR: Isola a regra de negócio do vínculo da barbearia
+    // =============================================================
+    private Barbeiro definirDonoDoCliente(Long donoIdDTO, Barbeiro usuarioLogado) {
+        // Se veio do Site Público (front-end mandou o donoId)
+        if (donoIdDTO != null) {
+            return barbeiroRepository.findById(donoIdDTO)
+                    .orElseThrow(() -> new RegraDeNegocioException("Dono não encontrado para vínculo."));
+        }
+        // Se veio do Painel Admin (tem um barbeiro logado fazendo a ação)
+        else if (usuarioLogado != null) {
+            return usuarioLogado;
+        }
+        // Bloqueio de segurança
+        else {
+            throw new RegraDeNegocioException("Não é possível cadastrar cliente sem vincular a uma barbearia.");
         }
     }
 

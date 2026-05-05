@@ -27,6 +27,7 @@ import java.util.List;
 public class ClienteController {
 
     private final ClienteService service;
+    private final BarbeiroRepository barbeiroRepository;
 
     // ========================================================
     // 1. CADASTRAR (Híbrido: Funciona Logado ou Público)
@@ -34,9 +35,9 @@ public class ClienteController {
     @PostMapping
     public ResponseEntity<DetalhamentoClienteDTO> cadastrar(
             @RequestBody @Valid CadastroClienteDTO dados,
-            @AuthenticationPrincipal Barbeiro usuarioLogado) { // Spring injeta o logado ou null automaticamente
+            @AuthenticationPrincipal Barbeiro usuarioLogado) { // Pode ser null no site
 
-
+        // O Controller não busca nada no banco. Ele apenas repassa a bola!
         var dto = service.salvar(dados, usuarioLogado);
 
         var uri = ServletUriComponentsBuilder.fromCurrentRequest()

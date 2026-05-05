@@ -19,6 +19,7 @@ public record CadastroClienteDTO(
         // E-mail agora é 100% opcional (sem anotações de validação obrigatória)
         String email,
 
-        Long barbeiroId // ✅ NOVO CAMPO (Opcional no Java, mas usaremos na lógica)
+        Long barbeiroId,
+        Long donoId
 ) {
 }

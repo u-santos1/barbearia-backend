@@ -16,14 +16,16 @@ public record DetalhamentoClienteDTO(
         Long id,
         String nome,
         String email,
-        String telefone
+        String telefone,
+        Long donoId
 ) {
     public DetalhamentoClienteDTO(Cliente cliente) {
         this(
                 cliente.getId(),
                 cliente.getNome(),
                 cliente.getEmail(),
-                cliente.getTelefone()
+                cliente.getTelefone(),
+                cliente.getDono().getId()
         );
     }
 }
