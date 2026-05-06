@@ -216,5 +216,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
 
     @Query("SELECT SUM(a.valorCobrado) FROM Agendamento a WHERE a.barbeiro.dono.id = :donoId AND DATE(a.dataHoraInicio) = :hoje AND a.status = 'CONCLUIDO'")
     BigDecimal somarFaturamentoDeHoje(Long donoId, LocalDate hoje);
+
+    Optional<Agendamento> findByIdAndBarbeiroId(Long id, Long barbeiroId);
 }
 

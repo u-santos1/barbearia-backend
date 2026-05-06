@@ -76,6 +76,8 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("Este horário já está ocupado.");
         }
 
+
+
         // --- CRIAÇÃO ---
         Agendamento agendamento = new Agendamento();
         agendamento.setCliente(cliente);
@@ -267,11 +269,9 @@ public class AgendamentoService {
     }
 
     @Transactional(readOnly = true)
-    @PostAuthorize("returnObject.barbeiro.dono.email == authentication.name")
-    public DetalhamentoAgendamentoDTO buscarPorId(Long id, String emailLogado) {
-        Agendamento agendamento = agendamentoRepository.findByIdAndDonoEmail(id,emailLogado)
+    public DetalhamentoAgendamentoDTO buscarPorId(Long id, Long idDonoLogado) {
+        Agendamento agendamento = agendamentoRepository.findByIdAndBarbeiroId(id, idDonoLogado) // Busca pelo ID do Dono
                 .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
-
         return new DetalhamentoAgendamentoDTO(agendamento);
     }
 

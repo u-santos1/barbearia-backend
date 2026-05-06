@@ -89,8 +89,8 @@ public class AgendamentoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DetalhamentoAgendamentoDTO> buscarPorId(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
-        var dto = service.buscarPorId(id, userDetails.getUsername());
+    public ResponseEntity<DetalhamentoAgendamentoDTO> buscarPorId(@PathVariable Long id, @AuthenticationPrincipal Barbeiro barbeiroLogado) {
+        var dto = service.buscarPorId(id, barbeiroLogado.getId()); // Passa o ID do dono!
         return ResponseEntity.ok(dto);
     }
 
