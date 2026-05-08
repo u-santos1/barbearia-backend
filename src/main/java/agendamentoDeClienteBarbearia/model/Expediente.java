@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.model;
 
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,6 +26,7 @@ public class Expediente {
 
     @ManyToOne
     @JoinColumn(name = "barbeiro_id", nullable = false)
+    @JsonIgnore
     private Barbeiro barbeiro;
 
 
