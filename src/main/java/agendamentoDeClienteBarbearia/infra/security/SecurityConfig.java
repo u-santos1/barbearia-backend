@@ -95,7 +95,8 @@ public class SecurityConfig {
                 "https://barbearia-frontend-rose.vercel.app",
                 "https://barbearia-frontend-9aynanzh7-u-santos1s-projects.vercel.app",
                 "http://127.0.0.1:5500",
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://barbearia-frontend-pjsh.vercel.app"
         ));
 
         // Métodos permitidos
