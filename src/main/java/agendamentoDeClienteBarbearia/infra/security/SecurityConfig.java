@@ -42,6 +42,8 @@ public class SecurityConfig {
                     // 2. AUTENTICAÇÃO E WEBHOOKS (Público)
                     req.requestMatchers("/auth/**").permitAll();
                     req.requestMatchers(HttpMethod.POST, "/pagamentos/webhook").permitAll();
+                    req.requestMatchers("/assinaturas/webhook/**").permitAll();
+                    req.requestMatchers("/assinaturas/**").authenticated();
 
                     // 3. FLUXO DO CLIENTE E ROTAS PÚBLICAS
                     req.requestMatchers(HttpMethod.POST, "/clientes", "/agendamentos").permitAll();
@@ -91,13 +93,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Permite qualquer origem (Frontend)
-        configuration.setAllowedOrigins(Arrays.asList(
-                "https://barbearia-frontend-rose.vercel.app",
-                "https://barbearia-frontend-9aynanzh7-u-santos1s-projects.vercel.app",
-                "http://127.0.0.1:5500",
-                "http://localhost:3000",
-                "https://barbearia-frontend-pjsh.vercel.app"
-        ));
+        configuration.setAllowedOriginPatterns(List.of("*"));
 
         // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));

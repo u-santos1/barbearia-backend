@@ -386,4 +386,5 @@ public class AgendamentoService {
 
         return new RelatorioFinanceiroCompletoDTO(total, casa, comissoes, agendamentos.size(), extrato);
     }
-}
+
+    }

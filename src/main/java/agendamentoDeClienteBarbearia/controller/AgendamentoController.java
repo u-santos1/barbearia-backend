@@ -7,9 +7,12 @@ import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.AgendamentoService;
+import agendamentoDeClienteBarbearia.service.GeradorPdfService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -25,7 +28,8 @@ import java.util.List;
 public class AgendamentoController {
 
     private final AgendamentoService service;
-  
+    private final GeradorPdfService geradorPdfService;
+
     // =========================================================
     // ROTAS PÚBLICAS (Acessadas pelo Site do Cliente)
     // =========================================================
@@ -177,5 +181,31 @@ public class AgendamentoController {
 
         var relatorio = service.gerarExtratoFinanceiro(userDetails.getUsername(), inicio, fim);
         return ResponseEntity.ok(relatorio);
+    }
+
+    @GetMapping("/financeiro/extrato/pdf")
+    public ResponseEntity<byte[]> baixarRelatorioPdf(
+            @RequestParam String inicio,
+            @RequestParam String fim,
+            org.springframework.security.core.Authentication authentication) { // <--- Pega quem está logado
+
+        // 1. Pega o email do dono que está logado no momento
+        String emailDono = authentication.getName();
+
+        // 2. Converte as datas de String ("2026-05-01") para LocalDate do Java
+        java.time.LocalDate dataInicio = java.time.LocalDate.parse(inicio);
+        java.time.LocalDate dataFim = java.time.LocalDate.parse(fim);
+
+
+        RelatorioFinanceiroCompletoDTO dados = service.gerarExtratoFinanceiro(emailDono, dataInicio, dataFim);
+
+        // 4. Gera o PDF
+        byte[] relatorioPdf = geradorPdfService.gerarRelatorioFinanceiroPdf(dados, inicio, fim);
+
+        // 5. Retorna forçando o Download no navegador
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"relatorio-barber-pro.pdf\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(relatorioPdf);
     }
 }
