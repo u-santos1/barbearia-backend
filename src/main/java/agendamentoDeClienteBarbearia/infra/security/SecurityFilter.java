@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -15,14 +16,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 @Component
+@RequiredArgsConstructor
 public class SecurityFilter extends OncePerRequestFilter { // <--- Vem do starter-web
 
     private final TokenService tokenService;
     private final BarbeiroRepository repository;
-    public SecurityFilter(TokenService tokenService, BarbeiroRepository repository){
-        this.tokenService = tokenService;
-        this.repository = repository;
-    }
+    private final TokenBlacklistService tokenBlacklistService;
+
+
 
 
 
@@ -31,6 +32,13 @@ public class SecurityFilter extends OncePerRequestFilter { // <--- Vem do starte
             throws ServletException, IOException {
 
         var tokenJWT = recuperarToken(request);
+
+        if (tokenJWT != null){
+            if (tokenBlacklistService.isInvalido(tokenJWT)){
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+        }
 
         if (tokenJWT != null) {
             try {

@@ -5,10 +5,14 @@ package agendamentoDeClienteBarbearia.model;
 import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
+import com.google.common.util.concurrent.CycleDetectingLockFactory;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.PolicyFactory;
 import org.springframework.security.core.GrantedAuthority;
+
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
@@ -104,33 +108,27 @@ public class Barbeiro implements UserDetails {
 
     @Override
     public boolean isEnabled() { return ativo; }
+    @Transient
+    private static final PolicyFactory SANITIZER = new HtmlPolicyBuilder().toFactory();
     // Dentro de Barbeiro.java
     public void atualizarInformacoes(AtualizacaoBarbeiroDTO dados) {
-
-
         if (StringUtils.hasText(dados.barbeariaNome())) {
-            this.barbeariaNome = dados.barbeariaNome();
+            this.barbeariaNome = SANITIZER.sanitize(dados.barbeariaNome());
         }
-
         if (StringUtils.hasText(dados.corPrimaria())) {
-            this.corPrimaria = dados.corPrimaria();
+            this.corPrimaria = SANITIZER.sanitize(dados.corPrimaria());
         }
-
         if (StringUtils.hasText(dados.imagemFundo())) {
-            this.imagemFundo = dados.imagemFundo();
+            this.imagemFundo = SANITIZER.sanitize(dados.imagemFundo());
         }
-
         if (StringUtils.hasText(dados.whatsappContato())) {
-            this.whatsappContato = dados.whatsappContato();
+            this.whatsappContato = SANITIZER.sanitize(dados.whatsappContato());
         }
-
         if (StringUtils.hasText(dados.instagramUrl())) {
-            this.instagramUrl = dados.instagramUrl();
+            this.instagramUrl = SANITIZER.sanitize(dados.instagramUrl());
         }
-
         if (StringUtils.hasText(dados.mensagemOla())) {
-            this.mensagemOla = dados.mensagemOla();
+            this.mensagemOla = SANITIZER.sanitize(dados.mensagemOla());
         }
     }
-
 }

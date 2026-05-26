@@ -16,7 +16,8 @@ public record CadastroBarbeiroDTO(
         String email,
 
         @NotBlank(message = "A senha é obrigatória")
-        @Size(min = 6, message = "A senha deve ter no mínimo 6 caracteres") // Segurança básica
+        @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!_]).{8,}$",
+                message = "A senha deve ter no mínimo 8 caracteres, contendo letras maiúsculas, minúsculas, números e caracteres especiais")
         String senha,
 
         @NotBlank(message = "A especialidade é obrigatória")

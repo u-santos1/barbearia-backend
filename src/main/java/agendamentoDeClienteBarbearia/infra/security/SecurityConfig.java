@@ -1,6 +1,8 @@
 package agendamentoDeClienteBarbearia.infra.security;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,10 +24,14 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    @Autowired
-    private SecurityFilter securityFilter;
+
+    private final SecurityFilter securityFilter;
+
+    @Value("${api.cors.allowed-origins:*}")
+    private String allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -92,8 +98,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Permite qualquer origem (Frontend)
-        configuration.setAllowedOriginPatterns(List.of("*"));
+
+        configuration.setAllowedOriginPatterns(List.of(
+                "https://barbearia-frontend-rose.vercel.app",
+                "https://barbearia-frontend-git-main-u-santos1s-projects.vercel.app",
+                "https://barbearia-frontend-7vnnqr379-u-santos1s-projects.vercel.app",
+                "https://*-u-santos1s-projects.vercel.app", // O curinga (*) aceita qualquer preview
+                "http://localhost:3000"
+        ));
 
         // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
