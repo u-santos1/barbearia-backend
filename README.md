@@ -1,4 +1,4 @@
-# 💈 Barber Pro API
+# 💈 Barbearia-BackEnd API
 
 > SaaS completo para gestão de barbearias — em produção
 
