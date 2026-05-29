@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.model.Agendamento;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
+import agendamentoDeClienteBarbearia.repository.AgendamentoRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -9,10 +10,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -23,10 +28,12 @@ import java.util.Map;
 public class NotificacaoService {
 
     private final RestTemplate restTemplate;
+    private final AgendamentoRepository agendamentoRepository;
 
     // Constantes para evitar Strings mágicas espalhadas
     private static final String ONESIGNAL_URL = "https://onesignal.com/api/v1/notifications";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM 'às' HH:mm");
+    private static final ZoneId TIMEZONE_BRASIL = ZoneId.of("America/Sao_Paulo");
 
     @Value("${onesignal.app.id}")
     private String oneSignalAppId;
@@ -34,13 +41,21 @@ public class NotificacaoService {
     @Value("${onesignal.api.key}")
     private String oneSignalApiKey;
 
-    public NotificacaoService(RestTemplateBuilder restTemplateBuilder) {
+    @Value("${whatsapp.api.url}")
+    private String whatsappApiUrl;
+
+    @Value("${whatsapp.api.token}")
+    private String whatsappApiToken;
+
+    public NotificacaoService(RestTemplateBuilder restTemplateBuilder,
+                              AgendamentoRepository agendamentoRepository) {
         // Timeout é CRUCIAL em chamadas externas.
         // Se o OneSignal cair, sua aplicação desiste em 5 segundos e não trava.
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(5))
                 .build();
+        this.agendamentoRepository = agendamentoRepository;
     }
 
     /**
@@ -97,4 +112,52 @@ public class NotificacaoService {
             log.error("Erro ao enviar notificação OneSignal: {}", e.getMessage(), e);
         }
     }
+    @Scheduled(fixedRate = 900000)
+    public void rotinaLembretesWhatsApp(){
+        log.info("Iniciando varredura para envio de lembretes via WhatsApp...");
+        LocalDateTime agora = LocalDateTime.now(TIMEZONE_BRASIL);
+        LocalDateTime inicioBusca = agora.plusHours(2);
+        LocalDateTime fimbusca = inicioBusca.plusMinutes(15);
+
+        List<Agendamento> agendamentos = agendamentoRepository.buscarAgendamentoParaLembrete(inicioBusca, fimbusca);
+        for (Agendamento agendamento : agendamentos){
+            enviarLembreteWhatsApp(agendamento);
+        }
+    }
+    @Async
+    public void enviarLembreteWhatsApp(Agendamento agendamento){
+        String telefoneCliente = agendamento.getCliente().getTelefone();
+        if (telefoneCliente == null || telefoneCliente.isBlank()){
+            log.warn("Lembrete ignorado: Cliente '{}' sem telefone.", agendamento.getCliente().getNome());
+            return;
+        }
+        try {
+            String numeroLimpo = telefoneCliente.replaceAll("\\D","");
+            String dataFormatada = agendamento.getDataHoraInicio().format(FORMATTER);
+            String mensagem = String.format(
+                    "Olá %s! ✂️\n\nPassando para lembrar do seu agendamento de *%s* com %s hoje, *%s*.\n\nTe esperamos lá!",
+                    agendamento.getCliente().getNome(),
+                    agendamento.getServico().getNome(),
+                    agendamento.getBarbeiro().getNome(),
+                    dataFormatada
+            );
+
+            Map<String, String> payload = new HashMap<>();
+            payload.put("number", "55" + numeroLimpo);
+            payload.put("text", mensagem);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + whatsappApiToken);
+
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(payload, headers);
+            restTemplate.postForObject(whatsappApiUrl, request, String.class);
+
+            log.info("Lembrete de WhatsApp enviado para o cliente: {}", agendamento.getCliente().getNome());
+
+        }
+        catch (Exception e){
+            log.error("Erro ao enviar lembrete de WhatsApp para {}: {}", agendamento.getCliente().getNome(), e.getMessage());
+        }
+    }
+
 }
