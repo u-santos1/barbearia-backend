@@ -119,7 +119,7 @@ public class NotificacaoService {
         LocalDateTime inicioBusca = agora.plusHours(2);
         LocalDateTime fimbusca = inicioBusca.plusMinutes(15);
 
-        List<Agendamento> agendamentos = agendamentoRepository.buscarAgendamentoParaLembrete(inicioBusca, fimbusca);
+        List<Agendamento> agendamentos = agendamentoRepository.buscarAgendamentosParaLembrete(inicioBusca, fimbusca);
         for (Agendamento agendamento : agendamentos){
             enviarLembreteWhatsApp(agendamento);
         }

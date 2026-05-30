@@ -220,14 +220,16 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     Optional<Agendamento> findByIdAndBarbeiroId(Long id, Long barbeiroId);
 
     @Query("""
-            SELECT a FROM Agendamento a 
-            JOIN FETCH a.cliente c
-            JOIN FETCH a.service s
-            JOIN FETCH a.barbeiro b
-            WHERE a.dataHoraInicio BETWEEN :inicio AND :fim 
-            AND a.status = agendamentoDeClienteBarbearia.StatusAgendamento.AGENDADO
-            """)
-    List<Agendamento> buscarAgendamentoParaLembrete(@Param("inicio") LocalDateTime inicio,
-                                                    @Param("fim") LocalDateTime fim);
+        SELECT a FROM Agendamento a 
+        JOIN FETCH a.cliente c
+        JOIN FETCH a.servico s
+        JOIN FETCH a.barbeiro b
+        WHERE a.dataHoraInicio BETWEEN :inicio AND :fim
+        AND a.status = agendamentoDeClienteBarbearia.StatusAgendamento.AGENDADO
+    """)
+    List<Agendamento> buscarAgendamentosParaLembrete(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
 }
 
