@@ -12,7 +12,9 @@ import java.time.LocalDateTime;
 public interface LogLembreteRepository extends JpaRepository<LogLembrete, Long> {
     boolean existsByAgendamentoIdAndRegraId(Long agendamentoId, Long regraId);
 
-    @Query("SELECT COUNT(l) FROM LogLembrete l WHERE l.dataEnvio >= :inicioDia AND l.dataEnvio <= :fimDia AND l.status = 'ENVIADO' AND l.agendamentoId IN (SELECT a.id FROM Agendamento a WHERE a.barbeiro.usuario.email = :email)")
+
+
+    @Query("SELECT COUNT(l) FROM LogLembrete l WHERE l.dataEnvio >= :inicioDia AND l.dataEnvio <= :fimDia AND l.status = 'ENVIADO' AND l.agendamentoId IN (SELECT a.id FROM Agendamento a WHERE a.barbeiro.email = :email)")
     long contarLembretesEnviadosHoje(@Param("inicioDia") LocalDateTime inicioDia,
                                      @Param("fimDia") LocalDateTime fimDia,
                                      @Param("email") String email);
