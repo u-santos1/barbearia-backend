@@ -233,6 +233,15 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
             @Param("fim") LocalDateTime fim,
             @Param("donoId") Long donoId
     );
+    @Query("SELECT COUNT(a) FROM Agendamento a WHERE a.barbeiro.usuario.email = :email AND a.status = 'CONFIRMADO' AND a.dataHoraInicio >= :inicioDia AND a.dataHoraInicio <= :fimDia")
+    long contarConfirmadosHoje(@Param("inicioDia") LocalDateTime inicioDia,
+                               @Param("fimDia") LocalDateTime fimDia,
+                               @Param("email") String email);
+
+    @Query("SELECT COUNT(a) FROM Agendamento a WHERE a.barbeiro.usuario.email = :email AND a.dataHoraInicio > :agora AND a.dataHoraInicio <= :amanha")
+    long contarProximosAgendamentos(@Param("agora") LocalDateTime agora,
+                                    @Param("amanha") LocalDateTime amanha,
+                                    @Param("email") String email);
 
 }
 

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/lembretes")
@@ -44,5 +45,9 @@ public class RegraLembreteController {
     public ResponseEntity<Void> deletar(@PathVariable Long id, @AuthenticationPrincipal UserDetails usuario) {
         service.deletar(id, usuario.getUsername());
         return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/kpis")
+    public ResponseEntity<Map<String, Object>> obterKpis(@AuthenticationPrincipal UserDetails usuario) {
+        return ResponseEntity.ok(service.obterKpis(usuario.getUsername()));
     }
 }

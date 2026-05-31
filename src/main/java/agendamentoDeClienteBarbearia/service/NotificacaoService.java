@@ -150,16 +150,25 @@ public class NotificacaoService {
 
         try {
             String numeroLimpo = agendamento.getCliente().getTelefone().replaceAll("\\D", "");
+
+            // PREVENÇÃO: Evitar duplicar o "55" se o cliente já se cadastrou com o código do Brasil
+            if (!numeroLimpo.startsWith("55")) {
+                numeroLimpo = "55" + numeroLimpo;
+            }
+
             String mensagemFinal = montarMensagemPersonalizada(regra.getMsg(), agendamento);
 
             Map<String, String> payload = new HashMap<>();
-            payload.put("number", "55" + numeroLimpo);
+            payload.put("number", numeroLimpo);
             payload.put("text", mensagemFinal);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + whatsappApiToken);
 
+            // CORREÇÃO PRINCIPAL: A Evolution API espera 'apikey' e não 'Authorization: Bearer'
+            headers.set("apikey", whatsappApiToken);
+
+            // Dispara a requisição
             restTemplate.postForObject(whatsappApiUrl, new HttpEntity<>(payload, headers), String.class);
 
             // REGISTRA O SUCESSO NO BANCO
@@ -187,4 +196,5 @@ public class NotificacaoService {
                 .replace("{horário}", hora)
                 .replace("{profissional}", barbearia);
     }
+
 }
