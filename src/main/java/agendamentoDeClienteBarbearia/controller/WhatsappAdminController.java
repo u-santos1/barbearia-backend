@@ -9,6 +9,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpStatusCodeException;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/whatsapp/admin")
 @RequiredArgsConstructor
@@ -75,4 +77,5 @@ public class WhatsappAdminController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("{\"error\": \"Erro interno: " + e.getMessage() + "\"}");
         }
     }
+
 }

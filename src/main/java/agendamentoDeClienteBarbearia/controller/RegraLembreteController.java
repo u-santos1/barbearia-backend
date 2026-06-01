@@ -2,6 +2,9 @@ package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.DadosRegraLembreteDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoRegraLembreteDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.HistoricoLembreteProjection;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
+import agendamentoDeClienteBarbearia.repository.LogLembreteRepository;
 import agendamentoDeClienteBarbearia.service.RegraLembreteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +22,7 @@ import java.util.Map;
 public class RegraLembreteController {
 
     private final RegraLembreteService service;
+    private final LogLembreteRepository logLembreteRepository;
 
     @PostMapping
     public ResponseEntity<DetalhamentoRegraLembreteDTO> criar(@RequestBody DadosRegraLembreteDTO dados,
@@ -49,5 +53,14 @@ public class RegraLembreteController {
     @GetMapping("/kpis")
     public ResponseEntity<Map<String, Object>> obterKpis(@AuthenticationPrincipal UserDetails usuario) {
         return ResponseEntity.ok(service.obterKpis(usuario.getUsername()));
+    }
+
+
+
+    @GetMapping("/historico")
+    public ResponseEntity<List<HistoricoLembreteProjection>> obterHistoricoEnvios(@AuthenticationPrincipal Barbeiro barbeiro) {
+
+        List<HistoricoLembreteProjection> historico = service.obterHistoricoEnvios(barbeiro);
+        return ResponseEntity.ok(historico);
     }
 }

@@ -97,7 +97,6 @@ public class NotificacaoService {
             log.error("Erro ao enviar notificação OneSignal: {}", e.getMessage());
         }
     }
-
     @Scheduled(fixedRate = 60000)
     public void rotinaLembretesWhatsApp() {
         LocalDateTime agora = LocalDateTime.now(TIMEZONE_BRASIL);
@@ -156,7 +155,8 @@ public class NotificacaoService {
                 numeroLimpo = "55" + numeroLimpo;
             }
 
-            String mensagemFinal = montarMensagemPersonalizada(regra.getMsg(), agendamento);
+            // ATENÇÃO: Passamos a 'regra' também para ele saber o nome da Barbearia
+            String mensagemFinal = montarMensagemPersonalizada(regra.getMsg(), agendamento, regra);
 
             Map<String, String> payload = new HashMap<>();
             payload.put("number", numeroLimpo);
@@ -164,41 +164,48 @@ public class NotificacaoService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-
-
             headers.set("apikey", whatsappApiToken);
 
-            // 1. Descobre o e-mail do barbeiro dono deste agendamento
-            String emailDono = agendamento.getBarbeiro().getEmail();
-
-            // 2. Gera o mesmo nome de instância única que o Controller gera
+            // CORREÇÃO DE HIERARQUIA SAAS:
+            // Em vez de pegar do agendamento.getBarbeiro() (que pode ser um funcionário sem zap),
+            // Nós pegamos da regra.getDono(), garantindo que vai usar a instância do Dono da Barbearia!
+            String emailDono = regra.getDono().getEmail();
             String nomeInstancia = "zap-" + emailDono.replaceAll("[^a-zA-Z0-9]", "");
 
-            // 3. Extrai a URL base limpa (ignora qualquer instância fixa do properties)
             String baseUrl = whatsappApiUrl.contains("/message/sendText")
                     ? whatsappApiUrl.split("/message/sendText")[0]
                     : whatsappApiUrl;
 
-            // 4. Monta a URL de envio apontando para o WhatsApp daquele barbeiro específico
             String urlDinamica = baseUrl + "/message/sendText/" + nomeInstancia;
 
-            // Dispara a requisição
-            restTemplate.postForObject(whatsappApiUrl, new HttpEntity<>(payload, headers), String.class);
+            // O GRANDE BUG CORRIGIDO: Agora usamos a urlDinamica na requisição!
+            restTemplate.postForObject(urlDinamica, new HttpEntity<>(payload, headers), String.class);
 
             // REGISTRA O SUCESSO NO BANCO
             logLembreteRepository.save(new LogLembrete(agendamento.getId(), regra.getId()));
 
-            log.info("Lembrete WhatsApp (Regra: '{}') enviado p/ {}", regra.getNome(), agendamento.getCliente().getNome());
+            // Adicionei o nomeInstancia no log para você ter a prova de que usou a conta certa
+            log.info("Lembrete WhatsApp (Regra: '{}') enviado p/ {} através da instância [{}]",
+                    regra.getNome(), agendamento.getCliente().getNome(), nomeInstancia);
 
         } catch (Exception e) {
             log.error("Erro ao enviar WhatsApp para {}: {}", agendamento.getCliente().getNome(), e.getMessage());
         }
     }
 
-    private String montarMensagemPersonalizada(String template, Agendamento agendamento) {
+    // Corrigido para receber a 'regra' e extrair os dados perfeitamente
+    private String montarMensagemPersonalizada(String template, Agendamento agendamento, RegraLembrete regra) {
         String cliente = (agendamento.getCliente() != null) ? agendamento.getCliente().getNome() : "Cliente";
-        String barbearia = (agendamento.getBarbeiro() != null) ? agendamento.getBarbeiro().getNome() : "Barbearia";
+
+        // Separação inteligente: Barbearia vs Profissional
+        String barbearia = "Barbearia";
+        if (regra.getDono() != null && regra.getDono().getBarbeariaNome() != null && !regra.getDono().getBarbeariaNome().isBlank()) {
+            barbearia = regra.getDono().getBarbeariaNome();
+        }
+
+        String profissional = (agendamento.getBarbeiro() != null) ? agendamento.getBarbeiro().getNome() : "nosso profissional";
         String servico = (agendamento.getServico() != null) ? agendamento.getServico().getNome() : "Serviço";
+
         String data = agendamento.getDataHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String hora = agendamento.getDataHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm"));
 
@@ -208,7 +215,7 @@ public class NotificacaoService {
                 .replace("{serviço}", servico)
                 .replace("{data}", data)
                 .replace("{horário}", hora)
-                .replace("{profissional}", barbearia);
+                .replace("{profissional}", profissional); // Agora fica perfeito!
     }
 
 }

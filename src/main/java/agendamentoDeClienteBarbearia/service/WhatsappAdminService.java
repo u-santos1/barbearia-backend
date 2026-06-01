@@ -81,4 +81,26 @@ public class WhatsappAdminService {
             throw e;
         }
     }
+    // 4. DISPARAR MENSAGEM DE TESTE IMEDIATO
+    public String enviarMensagemTeste(String nomeInstancia, String telefone) {
+        String url = getBaseUrl() + "/message/sendText/" + nomeInstancia;
+
+        // Limpa o número e garante o código 55 (Brasil)
+        String numeroLimpo = telefone.replaceAll("\\D", "");
+        if (!numeroLimpo.startsWith("55")) numeroLimpo = "55" + numeroLimpo;
+
+        Map<String, String> payload = new HashMap<>();
+        payload.put("number", numeroLimpo);
+        payload.put("text", "🚀 *Teste do Barber Pro!*\nSe você recebeu esta mensagem, o seu motor de WhatsApp SaaS está 100% online e pronto para enviar lembretes aos clientes!");
+
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(payload, getHeaders());
+
+        try {
+            restTemplate.postForObject(url, entity, String.class);
+            return "{\"status\": \"Mensagem enviada com sucesso!\"}";
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            System.err.println("❌ ERRO DA EVOLUTION API (Envio): " + e.getResponseBodyAsString());
+            throw e;
+        }
+    }
 }

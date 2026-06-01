@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.dtos.DadosRegraLembreteDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoRegraLembreteDTO;
+import agendamentoDeClienteBarbearia.dtosResponse.HistoricoLembreteProjection;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.RegraLembrete;
@@ -100,5 +101,13 @@ public class RegraLembreteService {
         kpis.put("reducao", reducaoFaltas);
 
         return kpis;
+    }
+
+
+    public List<HistoricoLembreteProjection> obterHistoricoEnvios(Barbeiro barbeiroLogado) {
+        // Regra de negócio (SaaS): Pega o ID do dono da barbearia para não misturar os logs
+        Long donoId = barbeiroLogado.getDono() != null ? barbeiroLogado.getDono().getId() : barbeiroLogado.getId();
+
+        return logLembreteRepository.buscarHistoricoPorDono(donoId);
     }
 }
