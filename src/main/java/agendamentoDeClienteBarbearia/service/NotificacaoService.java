@@ -165,8 +165,22 @@ public class NotificacaoService {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // CORREÇÃO PRINCIPAL: A Evolution API espera 'apikey' e não 'Authorization: Bearer'
+
             headers.set("apikey", whatsappApiToken);
+
+            // 1. Descobre o e-mail do barbeiro dono deste agendamento
+            String emailDono = agendamento.getBarbeiro().getEmail();
+
+            // 2. Gera o mesmo nome de instância única que o Controller gera
+            String nomeInstancia = "zap-" + emailDono.replaceAll("[^a-zA-Z0-9]", "");
+
+            // 3. Extrai a URL base limpa (ignora qualquer instância fixa do properties)
+            String baseUrl = whatsappApiUrl.contains("/message/sendText")
+                    ? whatsappApiUrl.split("/message/sendText")[0]
+                    : whatsappApiUrl;
+
+            // 4. Monta a URL de envio apontando para o WhatsApp daquele barbeiro específico
+            String urlDinamica = baseUrl + "/message/sendText/" + nomeInstancia;
 
             // Dispara a requisição
             restTemplate.postForObject(whatsappApiUrl, new HttpEntity<>(payload, headers), String.class);

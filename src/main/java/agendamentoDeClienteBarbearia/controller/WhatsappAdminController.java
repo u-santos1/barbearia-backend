@@ -4,6 +4,9 @@ import agendamentoDeClienteBarbearia.service.WhatsappAdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpStatusCodeException;
 
@@ -15,11 +18,16 @@ public class WhatsappAdminController {
 
     private final WhatsappAdminService service;
 
+    private String gerarNomeInstancia(UserDetails userDetails){
+        return "zap-" + userDetails.getUsername().replace("[^a-zA-Z0-9]", "");
+    }
+
     // 1. VERIFICAR STATUS
-    @GetMapping("/status/{nome}")
-    public ResponseEntity<String> obterStatus(@PathVariable String nome) {
+    @GetMapping("/status/")
+    public ResponseEntity<String> obterStatus(@AuthenticationPrincipal UserDetails usuario) {
+        String instanciaUnica = gerarNomeInstancia(usuario);
         try {
-            return ResponseEntity.ok(service.obterStatus(nome));
+            return ResponseEntity.ok(service.obterStatus(instanciaUnica));
         } catch (HttpStatusCodeException e) {
             return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
@@ -28,12 +36,12 @@ public class WhatsappAdminController {
     }
 
     // 2. BUSCAR QR CODE
-    @GetMapping("/connect/{nome}")
-    public ResponseEntity<String> lerQrCode(@PathVariable String nome) {
+    @GetMapping("/connect/")
+    public ResponseEntity<String> lerQrCode(@AuthenticationPrincipal UserDetails usuario){
+        String instanciaUnica = gerarNomeInstancia(usuario);
         try {
-            return ResponseEntity.ok(service.lerQrCode(nome));
+            return ResponseEntity.ok(service.lerQrCode(instanciaUnica));
         } catch (HttpStatusCodeException e) {
-
             return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("{\"error\": \"Erro interno: " + e.getMessage() + "\"}");
@@ -41,10 +49,11 @@ public class WhatsappAdminController {
     }
 
     // 3. CRIAR INSTÂNCIA CASO NÃO EXISTA
-    @PostMapping("/create/{nome}")
-    public ResponseEntity<String> criarInstancia(@PathVariable String nome) {
+    @PostMapping("/create/")
+    public ResponseEntity<String> criarInstancia(@AuthenticationPrincipal UserDetails usuario) {
+        String instanciaUnica = gerarNomeInstancia(usuario);
         try {
-            return ResponseEntity.ok(service.criarInstancia(nome));
+            return ResponseEntity.ok(service.criarInstancia(instanciaUnica));
         } catch (HttpStatusCodeException e) {
             return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
