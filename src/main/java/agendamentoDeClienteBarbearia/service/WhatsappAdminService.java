@@ -27,6 +27,13 @@ public class WhatsappAdminService {
         }
         return whatsappApiUrl;
     }
+    private HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("apikey", whatsappApiToken);
+        return headers;
+    }
+
 
     public String obterStatus(String nome) {
         String url = getBaseUrl() + "/instance/connectionState/" + nome;
@@ -46,18 +53,32 @@ public class WhatsappAdminService {
         return response.getBody();
     }
 
-    public String criarInstancia(String nome) {
+    public String criarInstancia(String nomeInstancia) {
         String url = getBaseUrl() + "/instance/create";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("apikey", whatsappApiToken);
 
-        Map<String, Object> body = new HashMap<>();
-        body.put("instanceName", nome);
-        body.put("token", whatsappApiToken);
-        body.put("qrcode", true);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("instanceName", nomeInstancia);
+        payload.put("qrcode", true);
+        payload.put("token", nomeInstancia);
+        payload.put("integration", "WHATSAPP-BAILEYS");
 
-        ResponseEntity<String> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
-        return response.getBody();
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
+
+        try {
+            // Tenta criar do zero
+            return restTemplate.postForObject(url, entity, String.class);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String respostaErro = e.getResponseBodyAsString();
+
+            // BLINDAGEM SAAS: Se o erro disser que já existe, nós ignoramos o erro e buscamos o QR Code!
+            if (respostaErro.contains("already in use")) {
+                System.out.println("⚠️ Instância [" + nomeInstancia + "] já existe! Buscando o QR Code existente...");
+                return lerQrCode(nomeInstancia); // Reaproveita o método que já temos nesta mesma classe!
+            }
+
+            // Se for outro erro diferente, aí sim nós imprimimos a vermelho e paramos
+            System.err.println("❌ ERRO DA EVOLUTION API (Create): " + respostaErro);
+            throw e;
+        }
     }
 }
