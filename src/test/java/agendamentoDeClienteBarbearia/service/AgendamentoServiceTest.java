@@ -1,7 +1,9 @@
 package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
+import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Agendamento;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.repository.AgendamentoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.DisplayName;
@@ -47,47 +49,64 @@ public class AgendamentoServiceTest {
     }
 
     @Test
-    @DisplayName("Deve retornar o DTO quando o agendamento for encontrado e pertencer ao dono")
+    @DisplayName("Deve retornar o DTO quando o agendamento for encontrado e pertencer à mesma barbearia (Dono)")
     void deveBuscarPorIdComSucesso() {
         // 1. ARRANGE (Preparação)
         Long idAgendamento = 1L;
-        Long  idLogado = 1L;
+        Long idDono = 100L;
 
+        // Criamos o Dono que está logado no sistema
+        Barbeiro donoLogado = new Barbeiro();
+        donoLogado.setId(idDono);
+        donoLogado.setDono(null); // Como ele é o dono supremo, ele não tem chefe
+
+        // Criamos um funcionário que pertence a esse dono
+        Barbeiro funcionario = new Barbeiro();
+        funcionario.setId(200L);
+        funcionario.setDono(donoLogado); // Vinculamos o funcionário ao dono
+
+        // Preparamos o Agendamento feito pelo funcionário
         Agendamento agendamentoMock = new Agendamento();
         agendamentoMock.setId(idAgendamento);
+        agendamentoMock.setBarbeiro(funcionario);
 
-
-        when(agendamentoRepository.findByIdAndBarbeiroId(idAgendamento, idLogado))
+        // O repositório agora faz uma busca global simples
+        when(agendamentoRepository.findById(idAgendamento))
                 .thenReturn(Optional.of(agendamentoMock));
 
         // 2. ACT (Ação)
-        DetalhamentoAgendamentoDTO resultado = service.buscarPorId(idAgendamento, idLogado);
+        // Passamos o objeto 'donoLogado' inteiro, como o novo Service exige
+        DetalhamentoAgendamentoDTO resultado = service.buscarPorId(idAgendamento, donoLogado);
 
         // 3. ASSERT (Verificação)
         assertNotNull(resultado);
-        assertEquals(idAgendamento, resultado.id());
+        assertEquals(idAgendamento, resultado.id()); // O novo DTO usa records (resultado.id() em vez de getId())
 
-
-        verify(agendamentoRepository).findByIdAndBarbeiroId(idAgendamento, idLogado);
+        // Garantimos que o repositório foi chamado da nova forma
+        verify(agendamentoRepository).findById(idAgendamento);
     }
 
     @Test
-    @DisplayName("Deve lançar EntityNotFoundException quando o agendamento não existir ou for de outro dono")
-    void deveLancarExcecaoQuandoNaoEncontrado() {
+    @DisplayName("Deve lançar RegraDeNegocioException quando o agendamento não existir no banco de dados")
+    void deveLancarExcecaoQuandoAgendamentoNaoEncontrado() {
         // 1. ARRANGE
         Long idAgendamento = 99L;
-        Long idLogado = 1L;
+        Barbeiro donoLogado = new Barbeiro();
+        donoLogado.setId(1L);
 
-
-        when(agendamentoRepository.findByIdAndBarbeiroId(idAgendamento, idLogado))
+        // Mockamos exatamente o método que o código real chama: findById
+        when(agendamentoRepository.findById(idAgendamento))
                 .thenReturn(Optional.empty());
 
         // 2 & 3. ACT & ASSERT
-        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () -> {
-            service.buscarPorId(idAgendamento, idLogado);
+        // Trocamos para a exceção correta que o seu código lança
+        RegraDeNegocioException exception = assertThrows(RegraDeNegocioException.class, () -> {
+            service.buscarPorId(idAgendamento, donoLogado);
         });
 
         assertEquals("Agendamento não encontrado.", exception.getMessage());
-        verify(agendamentoRepository).findByIdAndBarbeiroId(idAgendamento, idLogado);
+
+        // Verificamos exatamente o método que o código real chama
+        verify(agendamentoRepository).findById(idAgendamento);
     }
 }

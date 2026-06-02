@@ -269,9 +269,19 @@ public class AgendamentoService {
     }
 
     @Transactional(readOnly = true)
-    public DetalhamentoAgendamentoDTO buscarPorId(Long id, Long idDonoLogado) {
-        Agendamento agendamento = agendamentoRepository.findByIdAndBarbeiroId(id, idDonoLogado) // Busca pelo ID do Dono
-                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
+    public DetalhamentoAgendamentoDTO buscarPorId(Long id, Barbeiro barbeiroLogado) {
+        // 1. Busca o agendamento de forma global
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado."));
+
+        // 2. Proteção SaaS: Garante que o agendamento pertence à mesma Barbearia (Dono)
+        Long donoIdLogado = barbeiroLogado.getDono() != null ? barbeiroLogado.getDono().getId() : barbeiroLogado.getId();
+        Long donoIdAgendamento = agendamento.getBarbeiro().getDono() != null ? agendamento.getBarbeiro().getDono().getId() : agendamento.getBarbeiro().getId();
+
+        if (!donoIdLogado.equals(donoIdAgendamento)) {
+            throw new RegraDeNegocioException("Agendamento não encontrado.");
+        }
+
         return new DetalhamentoAgendamentoDTO(agendamento);
     }
 

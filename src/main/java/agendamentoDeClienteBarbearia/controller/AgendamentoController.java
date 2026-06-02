@@ -93,9 +93,11 @@ public class AgendamentoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DetalhamentoAgendamentoDTO> buscarPorId(@PathVariable Long id, @AuthenticationPrincipal Barbeiro barbeiroLogado) {
-        var dto = service.buscarPorId(id, barbeiroLogado.getId()); // Passa o ID do dono!
+    public ResponseEntity<DetalhamentoAgendamentoDTO> detalhar(@PathVariable Long id, @AuthenticationPrincipal Barbeiro barbeiro) {
+
+        DetalhamentoAgendamentoDTO dto = service.buscarPorId(id, barbeiro);
         return ResponseEntity.ok(dto);
+
     }
 
     @GetMapping("/meus")
