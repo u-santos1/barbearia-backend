@@ -3,6 +3,7 @@ package agendamentoDeClienteBarbearia.service;
 import agendamentoDeClienteBarbearia.PerfilAcesso;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
+import agendamentoDeClienteBarbearia.dtos.AtualizacaoPerfilDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.BarbeiroPublicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
@@ -237,4 +238,19 @@ public class BarbeiroService {
     @Transactional
     public List<RelatorioBarbeiroDTO> relatorioMensal(Long donoId, int mes, int ano) {
         return repository.relatorioMensal(donoId, mes, ano);}
+
+    @Transactional
+    public Barbeiro atualizarPerfil(String emailLogado, AtualizacaoPerfilDTO dados) {
+        Barbeiro barbeiro = repository.findByEmail(emailLogado)
+                .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado."));
+
+        // Atualiza os dados apenas se eles foram enviados na requisição
+        if (dados.barbeariaNome() != null) barbeiro.setBarbeariaNome(dados.barbeariaNome());
+        if (dados.whatsappContato() != null) barbeiro.setWhatsappContato(dados.whatsappContato());
+        if (dados.mensagemOla() != null) barbeiro.setMensagemOla(dados.mensagemOla());
+        if (dados.imagemFundo() != null) barbeiro.setImagemFundo(dados.imagemFundo());
+        if (dados.corPrimaria() != null) barbeiro.setCorPrimaria(dados.corPrimaria());
+
+        return barbeiro;
+}
 }

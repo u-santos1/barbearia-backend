@@ -1,6 +1,7 @@
 package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.AtualizacaoBarbeiroDTO;
+import agendamentoDeClienteBarbearia.dtos.AtualizacaoPerfilDTO;
 import agendamentoDeClienteBarbearia.dtos.CadastroBarbeiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.BarbeiroPublicoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoBarbeiroDTO;
@@ -115,5 +116,15 @@ public class BarbeiroController {
                                                                 @AuthenticationPrincipal Barbeiro dono){
         // Envolvi no ResponseEntity.ok() para manter o padrão de retorno da API
         return ResponseEntity.ok(service.relatorioMensal(dono.getId(),mes,ano));
+    }
+    @PutMapping("/perfil")
+    public ResponseEntity<DetalhamentoBarbeiroDTO> atualizarPerfil(
+            @RequestBody AtualizacaoPerfilDTO dados,
+            org.springframework.security.core.Authentication authentication) {
+
+        // authentication.getName() pega o email do usuário logado via Token JWT
+        Barbeiro barbeiroAtualizado = service.atualizarPerfil(authentication.getName(), dados);
+
+        return ResponseEntity.ok(new DetalhamentoBarbeiroDTO(barbeiroAtualizado));
     }
 }
