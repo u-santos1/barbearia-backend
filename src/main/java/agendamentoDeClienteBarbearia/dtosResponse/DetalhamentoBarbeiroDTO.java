@@ -12,8 +12,9 @@ public record DetalhamentoBarbeiroDTO(
         Boolean ativo,
         Long donoId,
         String whatsappContato,
-        String plano,              // ✅ O Frontend precisa disso para liberar a tela
-        LocalDateTime createdAt    // ✅ O Frontend precisa disso para contar os 15 dias
+        String plano,
+        LocalDateTime createdAt,
+        boolean acessoBloqueado
 ) {
     public DetalhamentoBarbeiroDTO(Barbeiro barbeiro) {
         this(
@@ -25,14 +26,9 @@ public record DetalhamentoBarbeiroDTO(
                 // Se tiver dono, pega o ID. Se não, é null (caso do próprio dono)
                 barbeiro.getDono() != null ? barbeiro.getDono().getId() : null,
                 barbeiro.getWhatsappContato(),
-
-                // ✅ Transforma o Enum TipoPlano em String ("SOLO" ou "MULTI").
-                // Se por algum motivo estiver nulo no banco, enviamos "SOLO" por segurança.
                 barbeiro.getPlano() != null ? barbeiro.getPlano().name() : "SOLO",
-
-                // ✅ Pega a data de criação.
-                // Atenção: Se na sua entidade Barbeiro o campo se chamar "dataCriacao", mude aqui para barbeiro.getDataCriacao()
-                barbeiro.getCreatedAt()
+                barbeiro.getCreatedAt(),
+                barbeiro.isAcessoBloqueado()
         );
     }
 }

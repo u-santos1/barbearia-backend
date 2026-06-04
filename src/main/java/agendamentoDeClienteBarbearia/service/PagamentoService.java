@@ -66,16 +66,16 @@ public class PagamentoService {
         Barbeiro barbeiro = barbeiroRepository.findById(idBarbeiro)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário não encontrado no sistema."));
 
-        // 🛡️ 1. PROTEÇÃO ANTI-NULL: Evita o crash se o CPF vier vazio do Frontend
+        //  1. PROTEÇÃO ANTI-NULL: Evita o crash se o CPF vier vazio do Frontend
         String cpfLimpo = (dados.cpf() != null) ? dados.cpf().replaceAll("\\D", "") : "";
         if (cpfLimpo.length() != 11) {
             throw new RegraDeNegocioException("CPF inválido. Certifique-se de preencher 11 dígitos.");
         }
 
-        // 🛡️ 2. PROTEÇÃO DE NOME: O Mercado Pago recusa se o nome for vazio
+        //  2. PROTEÇÃO DE NOME: O Mercado Pago recusa se o nome for vazio
         String nomePagador = (dados.nome() != null && !dados.nome().isBlank()) ? dados.nome() : barbeiro.getNome();
 
-        // 🛡️ 3. REGRA DE NEGÓCIO: Impede gerar PIX se a conta já está paga e válida
+        //  3. REGRA DE NEGÓCIO: Impede gerar PIX se a conta já está paga e válida
         if (barbeiro.getPlano() == TipoPlano.MULTI && barbeiro.getDataExpiracaoSaas() != null && barbeiro.getDataExpiracaoSaas().isAfter(LocalDate.now())) {
             throw new RegraDeNegocioException("A sua barbearia já possui uma assinatura MULTI ativa e válida.");
         }
@@ -159,7 +159,7 @@ public class PagamentoService {
                     barbeiro.setPlano(TipoPlano.MULTI);
                 }
 
-                // 2. 🚀 MÁGICA DO SAAS: Adiciona 30 dias de acesso ao sistema
+                // 2.  MÁGICA DO SAAS: Adiciona 30 dias de acesso ao sistema
                 LocalDate dataBase = barbeiro.getDataExpiracaoSaas();
                 if (dataBase == null || dataBase.isBefore(LocalDate.now())) {
                     barbeiro.setDataExpiracaoSaas(LocalDate.now().plusDays(30)); // Estava vencido, conta de hoje
@@ -168,7 +168,7 @@ public class PagamentoService {
                 }
 
                 barbeiroRepository.save(barbeiro);
-                log.info("✅ Plano MULTI ativado! O SaaS de {} foi renovado até: {}", barbeiro.getNome(), barbeiro.getDataExpiracaoSaas());
+                log.info(" Plano MULTI ativado! O SaaS de {} foi renovado até: {}", barbeiro.getNome(), barbeiro.getDataExpiracaoSaas());
 
                 // 3. Salva o Recibo na Base de Dados
                 HistoricoPagamento historico = new HistoricoPagamento();

@@ -6,6 +6,7 @@ import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import agendamentoDeClienteBarbearia.repository.ExpedienteRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,21 +35,27 @@ public class BarbeiroServiceTest {
     private BarbeiroService barbeiroService;
 
     @Test
-    void deveLancarExcecaoQuandoPlanoTentarCadastrarQuartoFuncionario(){
-
+    @DisplayName("Deve lançar exceção quando usuário SOLO tenta cadastrar mais de 1 barbeiro após período de trial")
+    void deveLancarExcecaoQuandoPlanoSoloTentarCadastrarMaisDeUmFuncionario() {
+        // ARRANGE (Cenário)
         Barbeiro dono = new Barbeiro();
         dono.setId(1L);
-        dono.setPlano(TipoPlano.MULTI);
+        dono.setPlano(TipoPlano.SOLO);
 
-        dono.setCreatedAt(LocalDateTime.now().minusDays(5));
+        // Simula que o trial de 7 dias já acabou (20 dias atrás)
+        dono.setCreatedAt(LocalDateTime.now().minusDays(20));
 
-        when(barbeiroRepository.countByDonoIdAndAtivoTrue(1L)).thenReturn(3L);
+        // Simula que ele já tem 1 barbeiro cadastrado (o dono conta como 1)
+        when(barbeiroRepository.countByDonoIdAndAtivoTrue(1L)).thenReturn(1L);
 
+        // ACT & ASSERT
         RegraDeNegocioException erroCapturado = assertThrows(RegraDeNegocioException.class, () -> {
-            barbeiroService.validarLimitesDoPlano(dono);
+            // Chamando o método de validação que criamos no Service
+            barbeiroService.validarLimiteDeBarbeiros(dono);
         });
-        assertEquals("Limite atingido. O plano SOLO permite até 3 funcionários. Faça upgrade para MULTI.", erroCapturado.getMessage());
 
+        // Verificação da mensagem (ajuste conforme a mensagem real do seu método)
+        assertEquals("O plano SOLO permite apenas 1 barbeiro. Faça o upgrade para o plano MULTI.", erroCapturado.getMessage());
     }
 
     @Test

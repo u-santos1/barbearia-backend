@@ -21,10 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -191,33 +188,49 @@ public class BarbeiroService {
     }
 
     // --- MÉTODOS AUXILIARES ---
-     void validarLimitesDoPlano(Barbeiro dono) {
-        // 1. O VIP passa direto (economiza CPU)
+    public void validarAcessoRecurso(Barbeiro dono, String recurso) {
+        // 1. O MULTI tem acesso total
+        if (dono.getPlano() == TipoPlano.MULTI) return;
+
+        // 2. Cálculo do Trial (7 dias a partir da data de criação)
+        long diasDeUso = 0;
+        if (dono.getCreatedAt() != null) {
+            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now());
+        }
+        boolean emTrial = diasDeUso <= 7;
+
+        // 3. Se estiver em trial, liberamos tudo
+        if (emTrial) return;
+
+        // 4. Se o trial acabou e é SOLO, bloqueamos recursos avançados
+        List<String> recursosPremium = List.of("FINANCEIRO", "EQUIPE", "EXPEDIENTE", "LEMBRETES", "PDF");
+
+        if (recursosPremium.contains(recurso.toUpperCase())) {
+            throw new RegraDeNegocioException("Seu período de testes acabou. Faça o upgrade para o plano MULTI para continuar usando " + recurso);
+        }
+    }
+
+    public void validarLimiteDeBarbeiros(Barbeiro dono) {
+        // Regra: Solo só pode ter 1 barbeiro
+        if (dono.getPlano() == TipoPlano.SOLO) {
+            long total = repository.countByDonoIdAndAtivoTrue(dono.getId());
+            if (total >= 1) { // Nota: O dono conta como 1, então se já existir 1, não pode adicionar outro
+                throw new RegraDeNegocioException("O plano SOLO permite apenas 1 barbeiro. Faça o upgrade para o plano MULTI.");
+            }
+        }
+    }
+    public void validarAcessoPremium(Barbeiro dono) {
+        // Se já é MULTI, passa direto
         if (dono.getPlano() == TipoPlano.MULTI) {
             return;
         }
 
-        // 2. Proteção de fuso horário brasileiro
-        ZoneId fusoBrasil = ZoneId.of("America/Sao_Paulo");
-        long diasDeUso = 0;
+        // Verifica se o trial (7 dias) ainda está valendo
+        boolean emTrial = dono.getCreatedAt().isAfter(LocalDateTime.now().minusDays(7));
 
-        if (dono.getCreatedAt() != null) {
-            diasDeUso = ChronoUnit.DAYS.between(dono.getCreatedAt().toLocalDate(), LocalDate.now(fusoBrasil));
-        }
-
-        boolean aindaEstaEmTeste = diasDeUso <= 15;
-
-        // 3. Guilhotina do tempo
-        if (!aindaEstaEmTeste) {
-            throw new RegraDeNegocioException("Seu período de teste acabou. Faça upgrade para MULTI.");
-        }
-
-        // 4. Guilhotina da quantidade de funcionários
-        long totalDeFuncionarios = repository.countByDonoIdAndAtivoTrue(dono.getId());
-
-        // Se ele já tem 3, não pode cadastrar o 4º
-        if (totalDeFuncionarios >= 3) {
-            throw new RegraDeNegocioException("Limite atingido. O plano SOLO permite até 3 funcionários. Faça upgrade para MULTI.");
+        if (!emTrial) {
+            // Se o trial passou e ele não é MULTI, bloqueia tudo!
+            throw new RegraDeNegocioException("Seu período de testes expirou. Faça upgrade para o plano MULTI para acessar este recurso.");
         }
     }
 
