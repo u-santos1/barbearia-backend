@@ -324,7 +324,7 @@ public class AgendamentoService {
         bloqueio.setDataHoraInicio(dados.dataHoraInicio());
         bloqueio.setDataHoraFim(dados.dataHoraFim());
         bloqueio.setStatus(StatusAgendamento.BLOQUEADO);
-        bloqueio.setObservacao("🔒 BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
+        bloqueio.setObservacao(" BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
         bloqueio.setValorCobrado(BigDecimal.ZERO);
         bloqueio.setValorTotal(BigDecimal.ZERO);
         bloqueio.setValorBarbeiro(BigDecimal.ZERO);

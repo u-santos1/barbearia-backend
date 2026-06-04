@@ -25,7 +25,7 @@ public class BloqueioService {
     private final BloqueioRepository repository;
     private final BarbeiroRepository barbeiroRepository;
 
-    // 🚨 INJEÇÃO OBRIGATÓRIA: Para evitar colisão com clientes
+    //  INJEÇÃO OBRIGATÓRIA: Para evitar colisão com clientes
     private final AgendamentoRepository agendamentoRepository;
 
     // ========================================================

@@ -18,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
@@ -75,6 +76,39 @@ public class Barbeiro implements UserDetails {
 
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @Column(name = "data_cadastro")
+    private LocalDate dataCadastro;
+
+    // NOVO: Guarda o dia exato em que o plano dele acaba
+    @Column(name = "data_expiracao_saas")
+    private LocalDate dataExpiracaoSaas;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.dataCadastro == null) {
+            this.dataCadastro = LocalDate.now();
+        }
+    }
+
+    // A trava de tempo
+    public boolean isAcessoBloqueado() {
+        LocalDate hoje = LocalDate.now();
+
+
+        if (this.dataExpiracaoSaas != null) {
+            return hoje.isAfter(this.dataExpiracaoSaas);
+        }
+
+
+        if (this.dataCadastro == null) {
+            return false; // Abre a porta para não crashar o servidor
+        }
+
+
+        return hoje.isAfter(this.dataCadastro.plusDays(7));
+    }
+
 
     private String barbeariaNome;
     private String corPrimaria;

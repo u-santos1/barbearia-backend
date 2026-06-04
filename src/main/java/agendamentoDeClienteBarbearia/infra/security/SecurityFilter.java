@@ -1,7 +1,7 @@
 package agendamentoDeClienteBarbearia.infra.security;
 
+import agendamentoDeClienteBarbearia.PerfilAcesso;
 
-import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.repository.BarbeiroRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,21 +17,20 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
-public class SecurityFilter extends OncePerRequestFilter { // <--- Vem do starter-web
+public class SecurityFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
     private final BarbeiroRepository repository;
     private final TokenBlacklistService tokenBlacklistService;
-
-
-
-
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         var tokenJWT = recuperarToken(request);
+
+        // NOVO: Precisamos saber qual rota o usuário está a tentar aceder
+        String path = request.getRequestURI();
 
         if (tokenJWT != null){
             if (tokenBlacklistService.isInvalido(tokenJWT)){
@@ -51,16 +50,31 @@ public class SecurityFilter extends OncePerRequestFilter { // <--- Vem do starte
 
                     // 3. Verifica se achou o usuário no banco
                     if (usuario != null) {
+
+                        // ==================================================
+                        // 🚨 TRAVA DO SAAS (PERÍODO DE TESTE OU MENSALIDADE)
+                        // ==================================================
+                        if (usuario.getPerfil() == PerfilAcesso.ADMIN && usuario.isAcessoBloqueado()) {
+
+                            // Liberta APENAS as rotas vitais para ele conseguir pagar o PIX
+                            if (!path.contains("/pagamento") && !path.contains("/planos") && !path.contains("/perfil") && !path.contains("/auth")) {
+                                response.setStatus(402); // 402 = Payment Required
+                                response.setContentType("application/json; charset=UTF-8");
+                                response.getWriter().write("{\"erro\": \"A sua assinatura do Kliper expirou. Efetue o pagamento para continuar a usar o sistema.\"}");
+                                return; // ⛔ BLOQUEIA A REQUISIÇÃO AQUI E NÃO AVANÇA
+                            }
+                        }
+                        // ==================================================
+
                         var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                     }
                 }
             } catch (Exception e) {
-                // AQUI ESTÁ A CORREÇÃO DO ERRO 500!
-                // Em vez de quebrar o servidor, nós apenas limpamos a autenticação.
-                // O Spring Security vai retornar 403 (Proibido) pacificamente depois.
+                // 🚨 AGORA O JAVA AVISA SE ALGO CRASHAR DE FORMA INVISÍVEL
+                System.out.println("🚨 ERRO NO FILTRO DE SEGURANÇA: " + e.getMessage());
+                e.printStackTrace();
                 SecurityContextHolder.clearContext();
-                // System.out.println("Token inválido ignorado: " + e.getMessage()); // Descomente para debug se quiser
             }
         }
 

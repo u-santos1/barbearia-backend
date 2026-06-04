@@ -53,7 +53,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
             @Param("fim") LocalDateTime fim);
 
     // ========================================================================
-    // 2. DISPONIBILIDADE E AGENDA DIÁRIA (🚨 CORRIGIDO AQUI)
+    // 2. DISPONIBILIDADE E AGENDA DIÁRIA ( CORRIGIDO AQUI)
     // ========================================================================
 
     // Mudei para LEFT JOIN FETCH no servico para trazer os bloqueios também
@@ -130,7 +130,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     );
 
     // ========================================================================
-    // 4. MÉTODOS SAAS E SEGURANÇA (🚨 CORRIGIDO AQUI TAMBÉM)
+    // 4. MÉTODOS SAAS E SEGURANÇA ( CORRIGIDO AQUI TAMBÉM)
     // ========================================================================
 
     @Query("""
@@ -195,7 +195,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     """)
     List<Agendamento> findAllByBarbeiroDonoId(@Param("donoId") Long donoId);
 
-    // 3. DASHBOARD DONO (🚨 CORRIGIDO: LEFT JOIN no Servico e Cliente)
+    // 3. DASHBOARD DONO ( CORRIGIDO: LEFT JOIN no Servico e Cliente)
     @Query("""
     SELECT a FROM Agendamento a 
     LEFT JOIN FETCH a.cliente

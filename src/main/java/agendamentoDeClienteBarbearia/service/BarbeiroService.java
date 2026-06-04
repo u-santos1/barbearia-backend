@@ -92,8 +92,17 @@ public class BarbeiroService {
         Barbeiro dono = repository.findById(idDono)
                 .orElseThrow(() -> new RegraDeNegocioException("Dono não encontrado"));
 
-        // 1. Validação de Plano (Trial ou Multi)
-        validarLimitesDoPlano(dono);
+
+        if (dono.getPlano() == TipoPlano.SOLO) {
+            long totalEquipe = repository.countByDonoIdAndAtivoTrue(dono.getId());
+
+            // O plano SOLO só permite o dono (0 funcionários extras).
+            // Se ele já tiver 0 funcionários cadastrados, qualquer tentativa de cadastrar o 1º vai falhar.
+            if (totalEquipe >= 0) {
+                throw new RegraDeNegocioException("O seu plano atual (SOLO) não permite adicionar equipa. Faça upgrade para o plano MULTI.");
+            }
+        }
+        // ====================================================================
 
         String emailFormatado = dados.email().trim().toLowerCase();
 
@@ -109,8 +118,6 @@ public class BarbeiroService {
 
         // ====================================================================
         // O SEU CÓDIGO DAQUI PARA BAIXO CONTINUA EXATAMENTE IGUAL
-        // Se for um cadastro novo, preenche do zero.
-        // Se for um funcionário inativo, ele atualiza as informações antigas!
         // ====================================================================
 
         novo.setNome(dados.nome().trim());
@@ -151,7 +158,7 @@ public class BarbeiroService {
     @Transactional(readOnly = true)
     public List<BarbeiroPublicoDTO> listarPorLoja(Long lojaId) {
         if (lojaId == null) {
-            // 🚨 CORREÇÃO DE SEGURANÇA: Nunca retorne todos os usuários do banco
+            //  CORREÇÃO DE SEGURANÇA: Nunca retorne todos os usuários do banco
             // Se não tem ID da loja, retorna lista vazia ou erro.
             return Collections.emptyList();
         }
@@ -253,4 +260,5 @@ public class BarbeiroService {
 
         return barbeiro;
 }
+
 }

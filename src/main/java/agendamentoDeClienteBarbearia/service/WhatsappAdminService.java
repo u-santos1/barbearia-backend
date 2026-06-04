@@ -72,12 +72,12 @@ public class WhatsappAdminService {
 
             // BLINDAGEM SAAS: Se o erro disser que já existe, nós ignoramos o erro e buscamos o QR Code!
             if (respostaErro.contains("already in use")) {
-                System.out.println("⚠️ Instância [" + nomeInstancia + "] já existe! Buscando o QR Code existente...");
+                System.out.println(" Instância [" + nomeInstancia + "] já existe! Buscando o QR Code existente...");
                 return lerQrCode(nomeInstancia); // Reaproveita o método que já temos nesta mesma classe!
             }
 
             // Se for outro erro diferente, aí sim nós imprimimos a vermelho e paramos
-            System.err.println("❌ ERRO DA EVOLUTION API (Create): " + respostaErro);
+            System.err.println(" ERRO DA EVOLUTION API (Create): " + respostaErro);
             throw e;
         }
     }
@@ -91,7 +91,7 @@ public class WhatsappAdminService {
 
         Map<String, String> payload = new HashMap<>();
         payload.put("number", numeroLimpo);
-        payload.put("text", "🚀 *Teste do Barber Pro!*\nSe você recebeu esta mensagem, o seu motor de WhatsApp SaaS está 100% online e pronto para enviar lembretes aos clientes!");
+        payload.put("text", " *Teste do Barber Pro!*\nSe você recebeu esta mensagem, o seu motor de WhatsApp SaaS está 100% online e pronto para enviar lembretes aos clientes!");
 
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(payload, getHeaders());
 
@@ -99,7 +99,7 @@ public class WhatsappAdminService {
             restTemplate.postForObject(url, entity, String.class);
             return "{\"status\": \"Mensagem enviada com sucesso!\"}";
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            System.err.println("❌ ERRO DA EVOLUTION API (Envio): " + e.getResponseBodyAsString());
+            System.err.println(" ERRO DA EVOLUTION API (Envio): " + e.getResponseBodyAsString());
             throw e;
         }
     }

@@ -81,7 +81,7 @@ public class ServicoService {
         servico.setAtivo(false);
     }
 
-    // ✅ MÉTODO INTELIGENTE: Lista por Barbeiro (Funcionário ou Dono)
+    //  MÉTODO INTELIGENTE: Lista por Barbeiro (Funcionário ou Dono)
     @Transactional(readOnly = true)
     public List<DetalhamentoServicoDTO> listarPorBarbeiro(Long idBarbeiro) {
         Barbeiro barbeiro = barbeiroRepository.findById(idBarbeiro)
@@ -95,7 +95,7 @@ public class ServicoService {
                 .toList();
     }
 
-    // ✅ MÉTODO SAAS: Lista meus serviços (Baseado no Token JWT)
+    //  MÉTODO SAAS: Lista meus serviços (Baseado no Token JWT)
     // Resolve o problema de "GET /servicos" trazer dados de outros
     @Transactional(readOnly = true)
     public List<DetalhamentoServicoDTO> listarPorLogin(String emailLogado) {
@@ -110,7 +110,7 @@ public class ServicoService {
                 .toList();
     }
 
-    // ✅ MÉTODO UNIFICADO PARA O CONTROLLER (FACADE)
+    // MÉTODO UNIFICADO PARA O CONTROLLER (FACADE)
     @Transactional(readOnly = true)
     public List<DetalhamentoServicoDTO> listarComFiltros(Long barbeiroId, Long lojaId, String emailLogado) {
         // 1. Se o front mandou ID de Barbeiro ou Loja (Cliente agendando)

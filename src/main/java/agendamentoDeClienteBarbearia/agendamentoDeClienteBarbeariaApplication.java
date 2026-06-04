@@ -15,7 +15,7 @@ public class agendamentoDeClienteBarbeariaApplication {
 		SpringApplication.run(agendamentoDeClienteBarbeariaApplication.class, args);
 	}
 
-	// ✅ CORREÇÃO: O método init fica FORA do main, mas DENTRO da classe
+	//  CORREÇÃO: O método init fica FORA do main, mas DENTRO da classe
 	@PostConstruct
 	public void init() {
 		TimeZone.setDefault(TimeZone.getTimeZone("America/Sao_Paulo"));

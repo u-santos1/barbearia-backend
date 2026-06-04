@@ -18,7 +18,7 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
 
     Optional<Barbeiro> findByEmail(String email);
 
-    // ⚠️ ALERTA DE SEGURANÇA:
+    //  ALERTA DE SEGURANÇA:
     // Evite usar este método no Frontend/Controller. Ele retorna barbeiros de TODAS as barbearias.
     // Use apenas para rotinas internas de Super Admin.
     List<Barbeiro> findAllByAtivoTrue();
@@ -34,7 +34,7 @@ public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
     // 3. CONSULTAS SAAS (BLINDADAS POR LOJA)
     // =========================================================================
 
-    // ✅ QUERY PRINCIPAL PARA O FRONTEND (Agendamento)
+    //  QUERY PRINCIPAL PARA O FRONTEND (Agendamento)
     // Lógica: "Traga este barbeiro SE (Ele for o Dono da loja X) OU (O chefe dele for o Dono X)"
     // E garante que ele esteja ATIVO (não demitido).
     @Query("""

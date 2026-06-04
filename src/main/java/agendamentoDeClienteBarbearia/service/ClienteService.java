@@ -41,11 +41,11 @@ public class ClienteService {
             throw new RegraDeNegocioException("Telefone é obrigatório.");
         }
 
-        // 3. Busca Estratégica ISOLADA POR SAAS (A Correção está aqui 👇)
+        // 3. Busca Estratégica ISOLADA POR SAAS (A Correção está aqui )
         Optional<Cliente> clienteExistente = repository.findByTelefoneAndDono(telefoneInput, donoResponsavel);
 
         if (clienteExistente.isEmpty() && emailInput != null) {
-            // Busca por email também isolada pelo dono 👇
+            // Busca por email também isolada pelo dono
             clienteExistente = repository.findByEmailAndDono(emailInput, donoResponsavel);
         }
 
@@ -83,7 +83,7 @@ public class ClienteService {
     private DetalhamentoClienteDTO atualizar(Cliente cliente, String novoNome, String novoEmail, String novoTelefone, Barbeiro dono) {
         // 1. Validação de Email Duplicado apenas dentro da barbearia deste DONO
         if (novoEmail != null && !novoEmail.equals(cliente.getEmail())) {
-            // 👇 Alterado para usar AndDono
+            //  Alterado para usar AndDono
             if (repository.existsByEmailAndDono(novoEmail, dono)) {
                 throw new RegraDeNegocioException("Este e-mail já está em uso por outro cliente na sua base.");
             }
@@ -92,7 +92,7 @@ public class ClienteService {
 
         // 2. Validação de Telefone Duplicado apenas dentro da barbearia deste DONO
         if (novoTelefone != null && !novoTelefone.equals(cliente.getTelefone())) {
-            // 👇 Alterado para usar AndDono
+            //  Alterado para usar AndDono
             if (repository.existsByTelefoneAndDono(novoTelefone, dono)) {
                 throw new RegraDeNegocioException("Este telefone já pertence a outro cliente cadastrado na sua base.");
             }
@@ -111,7 +111,7 @@ public class ClienteService {
 
     private DetalhamentoClienteDTO criar(String nome, String email, String telefone, Barbeiro dono) {
         // 3. Fail-safe de concorrência limitado ao escopo do DONO
-        // 👇 Alterado para usar AndDono
+        //  Alterado para usar AndDono
         if (repository.existsByTelefoneAndDono(telefone, dono)) {
             throw new RegraDeNegocioException("Telefone já cadastrado na sua barbearia.");
         }
