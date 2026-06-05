@@ -106,7 +106,8 @@ public class SecurityConfig {
                 "https://barbearia-frontend-git-main-u-santos1s-projects.vercel.app",
                 "https://barbearia-frontend-7vnnqr379-u-santos1s-projects.vercel.app",
                 "https://*-u-santos1s-projects.vercel.app", // O curinga (*) aceita qualquer preview
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://barbearia-frontend-pjsh.vercel.app"
         ));
 
         // Métodos permitidos
