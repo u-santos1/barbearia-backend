@@ -56,11 +56,15 @@ public class SecurityFilter extends OncePerRequestFilter {
                         // ==================================================
                         if (usuario.getPerfil() == PerfilAcesso.ADMIN && usuario.isAcessoBloqueado()) {
 
-                            // Liberta APENAS as rotas vitais para ele conseguir pagar o PIX
-                            if (!path.contains("/pagamento") && !path.contains("/planos") && !path.contains("/perfil") && !path.contains("/auth")) {
-                                response.setStatus(402); // 402 = Payment Required
+
+                            if (!path.contains("/pagamento") &&
+                                    !path.contains("/planos") &&
+                                    !path.contains("/auth") &&
+                                    !path.contains("/barbeiros/me")) {
+
+                                response.setStatus(402);
                                 response.setContentType("application/json; charset=UTF-8");
-                                response.getWriter().write("{\"erro\": \"A sua assinatura do Kliper expirou. Efetue o pagamento para continuar a usar o sistema.\"}");
+                                response.getWriter().write("{\"erro\": \"Sua assinatura expirou.\"}");
                                 return;
                             }
                         }
