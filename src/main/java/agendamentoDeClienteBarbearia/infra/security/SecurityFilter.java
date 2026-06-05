@@ -61,7 +61,7 @@ public class SecurityFilter extends OncePerRequestFilter {
                                 response.setStatus(402); // 402 = Payment Required
                                 response.setContentType("application/json; charset=UTF-8");
                                 response.getWriter().write("{\"erro\": \"A sua assinatura do Kliper expirou. Efetue o pagamento para continuar a usar o sistema.\"}");
-                                return; // ⛔ BLOQUEIA A REQUISIÇÃO AQUI E NÃO AVANÇA
+                                return;
                             }
                         }
                         // ==================================================
@@ -71,8 +71,8 @@ public class SecurityFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (Exception e) {
-                // 🚨 AGORA O JAVA AVISA SE ALGO CRASHAR DE FORMA INVISÍVEL
-                System.out.println("🚨 ERRO NO FILTRO DE SEGURANÇA: " + e.getMessage());
+
+                System.out.println(" ERRO NO FILTRO DE SEGURANÇA: " + e.getMessage());
                 e.printStackTrace();
                 SecurityContextHolder.clearContext();
             }

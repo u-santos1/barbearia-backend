@@ -1,8 +1,10 @@
 package agendamentoDeClienteBarbearia.dtosResponse;
 
-
+import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
+
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 public record DetalhamentoBarbeiroDTO(
         Long id,
@@ -14,8 +16,11 @@ public record DetalhamentoBarbeiroDTO(
         String whatsappContato,
         String plano,
         LocalDateTime createdAt,
-        boolean acessoBloqueado
+        Boolean acessoBloqueado,
+        Integer diasRestantesTrial
 ) {
+    private static final int DIAS_TRIAL = 7;
+
     public DetalhamentoBarbeiroDTO(Barbeiro barbeiro) {
         this(
                 barbeiro.getId(),
@@ -23,12 +28,28 @@ public record DetalhamentoBarbeiroDTO(
                 barbeiro.getEmail(),
                 barbeiro.getEspecialidade() != null ? barbeiro.getEspecialidade() : "Barbeiro",
                 barbeiro.getAtivo(),
-                // Se tiver dono, pega o ID. Se não, é null (caso do próprio dono)
                 barbeiro.getDono() != null ? barbeiro.getDono().getId() : null,
                 barbeiro.getWhatsappContato(),
                 barbeiro.getPlano() != null ? barbeiro.getPlano().name() : "SOLO",
                 barbeiro.getCreatedAt(),
-                barbeiro.isAcessoBloqueado()
+                calcularBloqueio(barbeiro),
+                calcularDiasRestantes(barbeiro)
         );
+    }
+
+    // Bloqueado = plano SOLO com trial expirado (>= 7 dias desde criação)
+    private static Boolean calcularBloqueio(Barbeiro barbeiro) {
+        if (barbeiro.getPlano() != TipoPlano.SOLO) return false;
+        if (barbeiro.getCreatedAt() == null) return false;
+        long diasPassados = ChronoUnit.DAYS.between(barbeiro.getCreatedAt(), LocalDateTime.now());
+        return diasPassados >= DIAS_TRIAL;
+    }
+
+    // -1 = plano pago (não está em trial), 0-7 = dias restantes do trial
+    private static Integer calcularDiasRestantes(Barbeiro barbeiro) {
+        if (barbeiro.getPlano() != TipoPlano.SOLO) return -1;
+        if (barbeiro.getCreatedAt() == null) return 0;
+        long diasPassados = ChronoUnit.DAYS.between(barbeiro.getCreatedAt(), LocalDateTime.now());
+        return (int) Math.max(0, DIAS_TRIAL - diasPassados);
     }
 }
