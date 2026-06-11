@@ -3,6 +3,8 @@ package agendamentoDeClienteBarbearia.repository;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.model.Cliente;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -31,4 +33,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     Optional<Cliente> findByTelefone(String telefone);
 
     long countByDonoId(Long donoId);
+
+    @Query("SELECT c FROM Cliente c WHERE c.telefone = :telefone AND c.dono.id = :donoId")
+    Optional<Cliente> findByTelefoneAndDonoId(@Param("telefone") String telefone, @Param("donoId") Long donoId);
 }

@@ -43,9 +43,10 @@ public class AssinaturaDTO {
     // ASSINATURA DO CLIENTE
     // -----------------------------------------------
     public record AssinarDTO(
-            @NotNull Long clienteId,
-            @NotNull Long planoId,
-            @NotBlank String formaPagamento, // MANUAL | MERCADO_PAGO
+            @NotBlank(message = "Nome é obrigatório") String clienteNome,
+            @NotBlank(message = "Telefone é obrigatório") String clienteTelefone,
+            @NotNull(message = "Plano é obrigatório") Long planoId,
+            @NotBlank String formaPagamento,
             String observacao
     ) {}
 

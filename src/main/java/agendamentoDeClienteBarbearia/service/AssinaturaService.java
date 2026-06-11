@@ -66,10 +66,20 @@ public class AssinaturaService {
     public AssinaturaDTO.AssinaturaResponseDTO assinarManual(AssinaturaDTO.AssinarDTO dto, Long barbeiroId) {
         Barbeiro barbeiro = barbeiroRepo.findById(barbeiroId)
                 .orElseThrow(() -> new RuntimeException("Barbeiro não encontrado"));
-        Cliente cliente = clienteRepo.findById(dto.clienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+
         PlanoAssinatura plano = planoRepo.findById(dto.planoId())
                 .orElseThrow(() -> new RuntimeException("Plano não encontrado"));
+
+
+        Cliente cliente = clienteRepo.findByTelefoneAndDonoId(dto.clienteTelefone(), barbeiroId)
+                .orElseGet(() -> {
+                    Cliente novoCliente = new Cliente();
+                    novoCliente.setNome(dto.clienteNome());
+                    novoCliente.setTelefone(dto.clienteTelefone());
+                    novoCliente.setDono(barbeiro);
+
+                    return clienteRepo.saveAndFlush(novoCliente);
+                });
 
         AssinaturaCliente assinatura = new AssinaturaCliente();
         assinatura.setCliente(cliente);
@@ -80,10 +90,13 @@ public class AssinaturaService {
         assinatura.setCortesDisponiveis(plano.getQuantidadeCortes());
         assinatura.setCortesUsados(0);
         assinatura.setStatus(StatusAssinatura.ATIVA);
-        assinatura.setFormaPagamento("MANUAL");
+        assinatura.setFormaPagamento(dto.formaPagamento());
         assinatura.setObservacao(dto.observacao());
 
-        return AssinaturaDTO.AssinaturaResponseDTO.from(assinaturaRepo.save(assinatura));
+        // Usa saveAndFlush também na assinatura
+        assinatura = assinaturaRepo.saveAndFlush(assinatura);
+
+        return AssinaturaDTO.AssinaturaResponseDTO.from(assinatura);
     }
 
     @Transactional(readOnly = true)

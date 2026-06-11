@@ -5,6 +5,8 @@ import agendamentoDeClienteBarbearia.dtosResponse.AssinaturaDTO;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 import agendamentoDeClienteBarbearia.service.AssinaturaService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -109,11 +111,11 @@ public class AssinaturaController {
     public ResponseEntity<Map<String, String>> criarPreferenciaMp(
             @RequestBody AssinaturaDTO.AssinarDTO dto,
             @AuthenticationPrincipal Barbeiro barbeiro) {
-        // Integração com MP — retorna o link de pagamento
-        // Implementar com MercadoPagoConfig e PreferenceClient
+
         return ResponseEntity.ok(Map.of(
                 "mensagem", "Integração MP em implementação",
-                "clienteId", String.valueOf(dto.clienteId()),
+                // Corrigido: Usar o telefone ou nome, já que o clienteId não existe mais no DTO
+                "clienteReferencia", dto.clienteTelefone(),
                 "planoId", String.valueOf(dto.planoId())
         ));
     }
