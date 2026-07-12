@@ -102,6 +102,7 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:8081",
                 "http://localhost:63342",
+                "http://127.0.0.1:5500/",
                 "https://barbearia-frontend-rose.vercel.app",
                 "https://barbearia-frontend-git-main-u-santos1s-projects.vercel.app",
                 "https://barbearia-frontend-7vnnqr379-u-santos1s-projects.vercel.app",
