@@ -131,6 +131,12 @@ public class BarbeiroService {
             novo.setComissaoPorcentagem(new BigDecimal("50.00"));
         }
 
+        if (dados.despesa() != null) {
+            novo.setDespesa(dados.despesa());
+        } else {
+            novo.setDespesa(BigDecimal.ZERO);
+        }
+
         novo.setPerfil(PerfilAcesso.BARBEIRO);
 
         // A MÁGICA FINAL ACONTECE AQUI:

@@ -29,5 +29,7 @@ public record CadastroBarbeiroDTO(
 
         Boolean vaiCortarCabelo,
              // Para saber se agenda serviços
-        Double comissaoPorcentagem    // Para o cálculo financeiro (ex: 50.0)
+        Double comissaoPorcentagem,    // Para o cálculo financeiro (ex: 50.0)
+        
+        java.math.BigDecimal despesa
 ) {}

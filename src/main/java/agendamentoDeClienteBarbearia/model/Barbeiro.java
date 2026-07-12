@@ -164,5 +164,8 @@ public class Barbeiro implements UserDetails {
         if (StringUtils.hasText(dados.mensagemOla())) {
             this.mensagemOla = SANITIZER.sanitize(dados.mensagemOla());
         }
+        if (dados.despesa() != null) {
+            this.despesa = dados.despesa();
+        }
     }
 }

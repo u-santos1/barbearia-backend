@@ -13,5 +13,6 @@ public record AtualizacaoBarbeiroDTO(
         String imagemFundo,
         String whatsappContato,
         String instagramUrl,
-        String mensagemOla
+        String mensagemOla,
+        BigDecimal despesa
 ) {}

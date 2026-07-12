@@ -17,7 +17,8 @@ public record DetalhamentoBarbeiroDTO(
         String plano,
         LocalDateTime createdAt,
         Boolean acessoBloqueado,
-        Integer diasRestantesTrial
+        Integer diasRestantesTrial,
+        java.math.BigDecimal despesa
 ) {
     private static final int DIAS_TRIAL = 7;
 
@@ -33,7 +34,8 @@ public record DetalhamentoBarbeiroDTO(
                 barbeiro.getPlano() != null ? barbeiro.getPlano().name() : "SOLO",
                 barbeiro.getCreatedAt(),
                 calcularBloqueio(barbeiro),
-                calcularDiasRestantes(barbeiro)
+                calcularDiasRestantes(barbeiro),
+                barbeiro.getDespesa()
         );
     }
 

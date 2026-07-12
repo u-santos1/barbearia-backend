@@ -12,7 +12,8 @@ public record BarbeiroAdminDTO(
         Boolean ativo,
         String whatsappContato,
         String plano,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        java.math.BigDecimal despesa
 ) {
     public BarbeiroAdminDTO(Barbeiro barbeiro) {
         this(
@@ -23,7 +24,8 @@ public record BarbeiroAdminDTO(
                 barbeiro.getAtivo(),
                 barbeiro.getWhatsappContato(),
                 barbeiro.getPlano().name(),
-                barbeiro.getCreatedAt()
+                barbeiro.getCreatedAt(),
+                barbeiro.getDespesa()
         );
     }
 }

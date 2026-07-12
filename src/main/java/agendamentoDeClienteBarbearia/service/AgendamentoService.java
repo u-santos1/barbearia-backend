@@ -304,6 +304,20 @@ public class AgendamentoService {
             casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : BigDecimal.ZERO);
         }
 
+        Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
+                .orElseThrow(() -> new EntityNotFoundException("Dono não encontrado"));
+        
+        List<Barbeiro> equipe = barbeiroRepository.findAllByLoja(dono.getId());
+        BigDecimal totalDespesaFixa = BigDecimal.ZERO;
+        for (Barbeiro b : equipe) {
+            if (b.getDespesa() != null) {
+                totalDespesaFixa = totalDespesaFixa.add(b.getDespesa());
+            }
+        }
+
+        repasse = repasse.add(totalDespesaFixa);
+        casa = casa.subtract(totalDespesaFixa);
+
         return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(), agendamentos.size());
     }
 
@@ -388,6 +402,20 @@ public class AgendamentoService {
             casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : BigDecimal.ZERO);
             comissoes = comissoes.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : BigDecimal.ZERO);
         }
+
+        Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
+                .orElseThrow(() -> new EntityNotFoundException("Dono não encontrado"));
+        
+        List<Barbeiro> equipe = barbeiroRepository.findAllByLoja(dono.getId());
+        BigDecimal totalDespesaFixa = BigDecimal.ZERO;
+        for (Barbeiro b : equipe) {
+            if (b.getDespesa() != null) {
+                totalDespesaFixa = totalDespesaFixa.add(b.getDespesa());
+            }
+        }
+
+        comissoes = comissoes.add(totalDespesaFixa);
+        casa = casa.subtract(totalDespesaFixa);
 
         // Converte a lista de entidades para DTOs para o extrato
         List<DetalhamentoAgendamentoDTO> extrato = agendamentos.stream()
