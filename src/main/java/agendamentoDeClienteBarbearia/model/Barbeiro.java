@@ -57,7 +57,7 @@ public class Barbeiro implements UserDetails {
     private BigDecimal comissaoPorcentagem = new BigDecimal("50.00");
 
     @Column(precision = 10, scale = 2)
-    private BigDecimal despesa = BigDecimal.ZERO;
+    private BigDecimal despesa = new BigDecimal("0");
 
     @Column(length = 100)
     private String especialidade;

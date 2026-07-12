@@ -26,7 +26,7 @@ public record DetalhamentoAgendamentoDTO(
                 agendamento.getDataHoraInicio(),
                 agendamento.getDataHoraFim(),
                 agendamento.getStatus() != null ? agendamento.getStatus().name() : null, // Converte para String
-                agendamento.getValorCobrado() != null ? agendamento.getValorCobrado() : BigDecimal.ZERO,
+                agendamento.getValorCobrado() != null ? agendamento.getValorCobrado() : new BigDecimal("0"),
                 agendamento.getBarbeiro() != null ? new DetalhamentoBarbeiroDTO(agendamento.getBarbeiro()) : null,
                 agendamento.getCliente() != null ? new DetalhamentoClienteDTO(agendamento.getCliente()) : null,
                 agendamento.getServico() != null ? new DetalhamentoServicoDTO(agendamento.getServico()) : null

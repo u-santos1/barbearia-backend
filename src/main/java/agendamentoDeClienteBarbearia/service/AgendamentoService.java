@@ -294,21 +294,21 @@ public class AgendamentoService {
         List<Agendamento> agendamentos = agendamentoRepository.buscarFinanceiroPorDono(
                 emailDono, start.atStartOfDay(), end.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
 
-        BigDecimal total = BigDecimal.ZERO;
-        BigDecimal casa = BigDecimal.ZERO;
-        BigDecimal repasse = BigDecimal.ZERO;
+        BigDecimal total = new BigDecimal("0");
+        BigDecimal casa = new BigDecimal("0");
+        BigDecimal repasse = new BigDecimal("0");
 
         for (Agendamento a : agendamentos) {
-            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : BigDecimal.ZERO);
-            repasse = repasse.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : BigDecimal.ZERO);
-            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : BigDecimal.ZERO);
+            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0"));
+            repasse = repasse.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : new BigDecimal("0"));
+            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : new BigDecimal("0"));
         }
 
         Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
                 .orElseThrow(() -> new EntityNotFoundException("Dono não encontrado"));
         
         List<Barbeiro> equipe = barbeiroRepository.findAllByLoja(dono.getId());
-        BigDecimal totalDespesaFixa = BigDecimal.ZERO;
+        BigDecimal totalDespesaFixa = new BigDecimal("0");
         for (Barbeiro b : equipe) {
             if (b.getDespesa() != null) {
                 totalDespesaFixa = totalDespesaFixa.add(b.getDespesa());
@@ -339,10 +339,10 @@ public class AgendamentoService {
         bloqueio.setDataHoraFim(dados.dataHoraFim());
         bloqueio.setStatus(StatusAgendamento.BLOQUEADO);
         bloqueio.setObservacao(" BLOQUEIO: " + (dados.motivo() != null ? dados.motivo() : "Manual"));
-        bloqueio.setValorCobrado(BigDecimal.ZERO);
-        bloqueio.setValorTotal(BigDecimal.ZERO);
-        bloqueio.setValorBarbeiro(BigDecimal.ZERO);
-        bloqueio.setValorCasa(BigDecimal.ZERO);
+        bloqueio.setValorCobrado(new BigDecimal("0"));
+        bloqueio.setValorTotal(new BigDecimal("0"));
+        bloqueio.setValorBarbeiro(new BigDecimal("0"));
+        bloqueio.setValorCasa(new BigDecimal("0"));
 
         agendamentoRepository.save(bloqueio);
     }
@@ -392,22 +392,22 @@ public class AgendamentoService {
         List<Agendamento> agendamentos = agendamentoRepository.buscarFinanceiroPorDono(
                 emailDono, dataInicio.atStartOfDay(), dataFim.atTime(LocalTime.MAX), StatusAgendamento.CONCLUIDO);
 
-        BigDecimal total = BigDecimal.ZERO;
-        BigDecimal casa = BigDecimal.ZERO;
-        BigDecimal comissoes = BigDecimal.ZERO;
+        BigDecimal total = new BigDecimal("0");
+        BigDecimal casa = new BigDecimal("0");
+        BigDecimal comissoes = new BigDecimal("0");
 
         // Soma os valores
         for (Agendamento a : agendamentos) {
-            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : BigDecimal.ZERO);
-            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : BigDecimal.ZERO);
-            comissoes = comissoes.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : BigDecimal.ZERO);
+            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0"));
+            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : new BigDecimal("0"));
+            comissoes = comissoes.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : new BigDecimal("0"));
         }
 
         Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
                 .orElseThrow(() -> new EntityNotFoundException("Dono não encontrado"));
         
         List<Barbeiro> equipe = barbeiroRepository.findAllByLoja(dono.getId());
-        BigDecimal totalDespesaFixa = BigDecimal.ZERO;
+        BigDecimal totalDespesaFixa = new BigDecimal("0");
         for (Barbeiro b : equipe) {
             if (b.getDespesa() != null) {
                 totalDespesaFixa = totalDespesaFixa.add(b.getDespesa());

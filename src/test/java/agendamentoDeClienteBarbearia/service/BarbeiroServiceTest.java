@@ -60,7 +60,7 @@ public class BarbeiroServiceTest {
 
     @Test
     void deveCadastrarBarbeiroEMockarExpediente(){
-        var dto = new CadastroBarbeiroDTO("Wesley", "wesley@email.com", "123456", "Corte", "21993434258", true, 100.0);
+        var dto = new CadastroBarbeiroDTO("Wesley", "wesley@email.com", "123456", "Corte", "21993434258", true, 100.0, new java.math.BigDecimal("0"));
 
         // Criamos um objeto de barbeiro "de mentira" para o mock retornar
         Barbeiro barbeiroFake = new Barbeiro();

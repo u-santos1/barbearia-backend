@@ -134,7 +134,7 @@ public class BarbeiroService {
         if (dados.despesa() != null) {
             novo.setDespesa(dados.despesa());
         } else {
-            novo.setDespesa(BigDecimal.ZERO);
+            novo.setDespesa(new BigDecimal("0"));
         }
 
         novo.setPerfil(PerfilAcesso.BARBEIRO);

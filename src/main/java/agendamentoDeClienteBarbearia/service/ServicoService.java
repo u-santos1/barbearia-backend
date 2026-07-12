@@ -142,7 +142,7 @@ public class ServicoService {
         Long agendamentosHoje = agendamentoRepository.contarAgendamentosDeHoje(donoId, hoje);
         BigDecimal faturamento = agendamentoRepository.somarFaturamentoDeHoje(donoId, hoje);
 
-        if (faturamento == null) faturamento = BigDecimal.ZERO;
+        if (faturamento == null) faturamento = new BigDecimal("0");
 
         int capacidadeDiaria = 20;
         int taxa = (int) Math.min(100, Math.round((agendamentosHoje.doubleValue() / capacidadeDiaria) * 100));
