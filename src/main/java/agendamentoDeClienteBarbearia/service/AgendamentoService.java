@@ -299,9 +299,16 @@ public class AgendamentoService {
         BigDecimal repasse = new BigDecimal("0");
 
         for (Agendamento a : agendamentos) {
-            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0"));
-            repasse = repasse.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : new BigDecimal("0"));
-            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : new BigDecimal("0"));
+            BigDecimal vTotal = a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0");
+            total = total.add(vTotal);
+            
+            if (a.getBarbeiro() != null && agendamentoDeClienteBarbearia.PerfilAcesso.ADMIN.equals(a.getBarbeiro().getPerfil())) {
+                // A comissão do dono é o lucro da casa, não uma despesa a ser paga.
+                casa = casa.add(vTotal);
+            } else {
+                repasse = repasse.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : new BigDecimal("0"));
+                casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : new BigDecimal("0"));
+            }
         }
 
         Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
@@ -398,9 +405,16 @@ public class AgendamentoService {
 
         // Soma os valores
         for (Agendamento a : agendamentos) {
-            total = total.add(a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0"));
-            casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : new BigDecimal("0"));
-            comissoes = comissoes.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : new BigDecimal("0"));
+            BigDecimal vTotal = a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0");
+            total = total.add(vTotal);
+            
+            if (a.getBarbeiro() != null && agendamentoDeClienteBarbearia.PerfilAcesso.ADMIN.equals(a.getBarbeiro().getPerfil())) {
+                // A comissão do dono é o lucro da casa, não uma despesa a ser paga.
+                casa = casa.add(vTotal);
+            } else {
+                comissoes = comissoes.add(a.getValorBarbeiro() != null ? a.getValorBarbeiro() : new BigDecimal("0"));
+                casa = casa.add(a.getValorCasa() != null ? a.getValorCasa() : new BigDecimal("0"));
+            }
         }
 
         Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
