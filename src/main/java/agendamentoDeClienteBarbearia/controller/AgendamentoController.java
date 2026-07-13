@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.controller;
 
 import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
 import agendamentoDeClienteBarbearia.dtos.BloqueioDTO;
+import agendamentoDeClienteBarbearia.dtos.RemarcacaoDTO;
 import agendamentoDeClienteBarbearia.dtos.RelatorioFinanceiroCompletoDTO;
 import agendamentoDeClienteBarbearia.dtos.ResumoFinanceiroDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
@@ -132,6 +133,17 @@ public class AgendamentoController {
     }
 
     // --- AÇÕES ---
+
+    @PutMapping("/{id}/remarcar")
+    public ResponseEntity<DetalhamentoAgendamentoDTO> remarcar(
+            @PathVariable Long id, 
+            @RequestBody @Valid RemarcacaoDTO dados, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        String emailContexto = (userDetails != null) ? userDetails.getUsername() : null;
+        var dto = service.remarcar(id, emailContexto, dados);
+        return ResponseEntity.ok(dto);
+    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelar(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {

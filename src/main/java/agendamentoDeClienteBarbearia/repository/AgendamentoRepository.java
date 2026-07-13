@@ -39,6 +39,26 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     @Query("""
         SELECT COUNT(a) > 0 
         FROM Agendamento a 
+        WHERE a.barbeiro.id = :barbeiroId 
+        AND a.id != :agendamentoId
+        AND a.status NOT IN (
+            agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO,
+            agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO_PELO_CLIENTE, 
+            agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO_PELO_BARBEIRO
+        )
+        AND (
+            (a.dataHoraInicio < :fimSolicitado) AND 
+            (a.dataHoraFim > :inicioSolicitado)
+        )
+    """)
+    boolean existeConflitoDeHorarioExcluindoId(@Param("barbeiroId") Long barbeiroId,
+                                    @Param("inicioSolicitado") LocalDateTime inicioSolicitado,
+                                    @Param("fimSolicitado") LocalDateTime fimSolicitado,
+                                    @Param("agendamentoId") Long agendamentoId);
+
+    @Query("""
+        SELECT COUNT(a) > 0 
+        FROM Agendamento a 
         WHERE a.barbeiro.email = :email 
         AND a.status NOT IN (
              agendamentoDeClienteBarbearia.StatusAgendamento.CANCELADO,

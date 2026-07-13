@@ -2,6 +2,7 @@ package agendamentoDeClienteBarbearia.service;
 
 import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.dtos.*;
+import agendamentoDeClienteBarbearia.dtos.RemarcacaoDTO;
 import agendamentoDeClienteBarbearia.dtosResponse.DetalhamentoAgendamentoDTO;
 import agendamentoDeClienteBarbearia.infra.RegraDeNegocioException;
 import agendamentoDeClienteBarbearia.model.*;
@@ -99,6 +100,53 @@ public class AgendamentoService {
         return new DetalhamentoAgendamentoDTO(agendamentoSalvo);
     }
 
+    @Transactional
+    @PreAuthorize("@securityService.isDonoDoAgendamento(#id, authentication.name) or hasRole('DONO') or @securityService.isBarbeiroDoAgendamento(#id, authentication.name)")
+    public DetalhamentoAgendamentoDTO remarcar(Long id, String emailLogado, RemarcacaoDTO dados) {
+        log.info("Processando remarcação para Agendamento ID: {}", id);
+
+        Agendamento agendamento = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
+
+        if (agendamento.getStatus() == StatusAgendamento.CANCELADO || agendamento.getStatus() == StatusAgendamento.CONCLUIDO) {
+            throw new RegraDeNegocioException("Não é possível remarcar um agendamento cancelado ou concluído.");
+        }
+
+        LocalDateTime dataInicio = dados.novaDataHoraInicio();
+
+        if (dataInicio == null) throw new RegraDeNegocioException("A nova data é obrigatória");
+
+        if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
+            throw new RegraDeNegocioException("Não é possível remarcar para datas passadas.");
+        }
+
+        Servico servico = agendamento.getServico();
+        Barbeiro barbeiro = agendamento.getBarbeiro();
+
+        validarHorarioFuncionamento(barbeiro.getId(), dataInicio, servico.getDuracaoEmMinutos());
+
+        LocalDateTime dataFim = dataInicio.plusMinutes(servico.getDuracaoEmMinutos());
+
+        if (agendamentoRepository.existeConflitoDeHorarioExcluindoId(barbeiro.getId(), dataInicio, dataFim, id)) {
+            throw new RegraDeNegocioException("Este horário já está ocupado.");
+        }
+
+        agendamento.setDataHoraInicio(dataInicio);
+        agendamento.setDataHoraFim(dataFim);
+        
+        // Se já estava confirmado, volta para agendado para o barbeiro saber que mudou,
+        // ou mantém o status. Normalmente volta pra AGENDADO.
+        agendamento.setStatus(StatusAgendamento.AGENDADO); 
+
+        Agendamento agendamentoSalvo = agendamentoRepository.save(agendamento);
+
+        notificacaoService.notificarBarbeiro(barbeiro, agendamentoSalvo);
+
+        log.info("Agendamento remarcado com sucesso! ID: {}", agendamentoSalvo.getId());
+
+        return new DetalhamentoAgendamentoDTO(agendamentoSalvo);
+    }
+
     // --- 2. STATUS E CANCELAMENTO ---
     @Transactional
     @PreAuthorize("@securityService.isDonoDoAgendamento(#id, authentication.name)")
@@ -189,9 +237,25 @@ public class AgendamentoService {
         List<String> horariosLivres = new ArrayList<>();
         LocalTime slotAtual = inicioExpediente;
 
+        LocalDate hojeLocal = LocalDate.now(TIMEZONE_BRASIL);
+        
+        // Se a data solicitada for no passado, não retorna nenhum horário
+        if (data.isBefore(hojeLocal)) {
+            return horariosLivres;
+        }
+
+        boolean isHoje = data.equals(hojeLocal);
+        LocalTime horaLimiteAgendamento = LocalTime.now(TIMEZONE_BRASIL).plusMinutes(15);
+
         // 3. Loop de Slots (Intervalo padrão de 30min para visualização)
         // Verifica se o serviço inteiro cabe antes do fechamento
         while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimExpediente)) {
+
+            // Se for hoje, ignora horários que já passaram (considerando 15 min de margem)
+            if (isHoje && slotAtual.isBefore(horaLimiteAgendamento)) {
+                slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
+                continue;
+            }
 
             LocalDateTime dataHoraInicio = data.atTime(slotAtual);
             LocalDateTime dataHoraFim = dataHoraInicio.plusMinutes(duracaoMinutos);
