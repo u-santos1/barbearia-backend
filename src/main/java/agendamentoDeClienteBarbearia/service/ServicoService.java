@@ -34,9 +34,11 @@ public class ServicoService {
 
     private final ClienteRepository clienteRepository;
     private final AgendamentoRepository agendamentoRepository;
-    // Removi BarbeiroService para evitar Dependência Circular, usamos o Repository direto
+    // Removi BarbeiroService para evitar Dependência Circular, usamos o Repository
+    // direto
 
-    // ... (Seus métodos cadastrar, atualizar, excluir mantidos aqui - lógica do DonoLogado permanece)
+    // ... (Seus métodos cadastrar, atualizar, excluir mantidos aqui - lógica do
+    // DonoLogado permanece)
 
     @Transactional
     public DetalhamentoServicoDTO cadastrar(CadastroServicoDTO dados, String emailLogado) {
@@ -60,13 +62,14 @@ public class ServicoService {
     public DetalhamentoServicoDTO atualizar(Long idServico, CadastroServicoDTO dados, Long donoLogadoId) {
 
         Servico servico = servicoRepository.findByIdAndDonoId(idServico, donoLogadoId)
-                .orElseThrow(() -> new EntityNotFoundException("Serviço não encontrado ou você não tem permissão para alterá-lo."));
-
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Serviço não encontrado ou você não tem permissão para alterá-lo."));
 
         servico.atualizarInformacoes(dados);
 
         // Como o método está anotado com @Transactional, o Spring Data JPA
-        // salva automaticamente no banco ao finalizar a execução. Não precisa de .save()
+        // salva automaticamente no banco ao finalizar a execução. Não precisa de
+        // .save()
 
         // 3. RETORNA O DTO
         return new DetalhamentoServicoDTO(servico);
@@ -77,17 +80,19 @@ public class ServicoService {
         // ... (Sua implementação existente com Soft Delete)
         Barbeiro dono = getDonoLogado();
         var servico = repository.findById(id).orElseThrow();
-        if(!servico.getDono().getId().equals(dono.getId())) throw new RegraDeNegocioException("Erro");
+        if (!servico.getDono().getId().equals(dono.getId()))
+            throw new RegraDeNegocioException("Erro");
         servico.setAtivo(false);
     }
 
-    //  MÉTODO INTELIGENTE: Lista por Barbeiro (Funcionário ou Dono)
+    // MÉTODO INTELIGENTE: Lista por Barbeiro (Funcionário ou Dono)
     @Transactional(readOnly = true)
     public List<DetalhamentoServicoDTO> listarPorBarbeiro(Long idBarbeiro) {
         Barbeiro barbeiro = barbeiroRepository.findById(idBarbeiro)
                 .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado"));
 
-        // Lógica de Ouro: Se o barbeiro tem um chefe, pega o ID do chefe. Se não, ele é o chefe.
+        // Lógica de Ouro: Se o barbeiro tem um chefe, pega o ID do chefe. Se não, ele é
+        // o chefe.
         Long idDono = (barbeiro.getDono() != null) ? barbeiro.getDono().getId() : barbeiro.getId();
 
         return repository.findAllByDonoIdAndAtivoTrue(idDono).stream()
@@ -95,7 +100,7 @@ public class ServicoService {
                 .toList();
     }
 
-    //  MÉTODO SAAS: Lista meus serviços (Baseado no Token JWT)
+    // MÉTODO SAAS: Lista meus serviços (Baseado no Token JWT)
     // Resolve o problema de "GET /servicos" trazer dados de outros
     @Transactional(readOnly = true)
     public List<DetalhamentoServicoDTO> listarPorLogin(String emailLogado) {
@@ -142,7 +147,8 @@ public class ServicoService {
         Long agendamentosHoje = agendamentoRepository.contarAgendamentosDeHoje(donoId, hoje);
         BigDecimal faturamento = agendamentoRepository.somarFaturamentoDeHoje(donoId, hoje);
 
-        if (faturamento == null) faturamento = new BigDecimal("0");
+        if (faturamento == null)
+            faturamento = new BigDecimal("0");
 
         int capacidadeDiaria = 20;
         int taxa = (int) Math.min(100, Math.round((agendamentosHoje.doubleValue() / capacidadeDiaria) * 100));
