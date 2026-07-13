@@ -14,6 +14,6 @@ public record AgendamentoDTO(
         @NotNull Long barbeiroId,
         @NotNull Long clienteId,
         @NotNull Long servicoId,
-        @NotNull @FutureOrPresent @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime dataHoraInicio,// O único horário que importa na entrada
+        @NotNull @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime dataHoraInicio,
         String observacao
 ) {}
