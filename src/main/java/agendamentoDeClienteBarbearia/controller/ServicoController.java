@@ -72,7 +72,8 @@ public class ServicoController {
             @RequestParam(required = false) Long lojaId
     ) {
         // Pega o usuário do Token JWT para segurança caso não venha parâmetro
-        String emailLogado = SecurityContextHolder.getContext().getAuthentication().getName();
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        String emailLogado = (auth != null) ? auth.getName() : null;
 
         // O Service decide: se tem ID, busca do ID. Se não tem, busca do emailLogado.
         // NUNCA mais retorna findAll() global.
