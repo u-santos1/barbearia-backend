@@ -14,36 +14,44 @@
 ## 📋 Sobre o Projeto
 
 API RESTful backend de um SaaS para gestão completa de barbearias.
-Construído do zero com foco em Clean Code, segurança e arquitetura escalável.
+Construído do zero com foco em Clean Code, segurança e arquitetura escalável (Padrão 3 Camadas).
 
-O sistema permite que donos de barbearias gerenciem sua equipe, serviços
-e agenda — enquanto clientes agendam horários online sem precisar de cadastro.
+O sistema permite que donos de barbearias gerenciem sua equipe, serviços, planos de assinatura
+e agenda — enquanto clientes agendam horários online sem precisar de cadastro prévio.
 
 ---
 
 ## ✨ Funcionalidades
 
-### 🔐 Segurança
-- Autenticação stateless com JWT (HMAC256)
-- Controle de acesso por roles — ADMIN, BARBEIRO, CLIENTE
-- Spring Security com filtro customizado
-- Senhas com hash BCrypt
+### 🔐 Segurança Avançada
+- Autenticação stateless com JWT (HMAC256).
+- Controle de acesso rigoroso por perfis (ADMIN, BARBEIRO, CLIENTE).
+- Proteção dupla de **Rate Limiting** (Caffeine + Bucket4j):
+  - Global por IP (Prevenção contra DDoS).
+  - Específico por e-mail no login (Prevenção contra Força Bruta).
+- Senhas com hash BCrypt e fluxo seguro de recuperação de senha.
 
 ### 📅 Agenda Inteligente
-- Validação automática de conflitos de horário
-- Expediente dinâmico por barbeiro (dias e horários configuráveis)
-- Bloqueios administrativos (almoço, consulta médica)
-- Cálculo automático de slots baseado na duração do serviço
+- Validação automática de conflitos de horário.
+- Expediente dinâmico por barbeiro (dias e horários configuráveis).
+- Bloqueios administrativos (almoço, consulta médica, férias).
+- Cálculo automático de slots baseado na duração específica de cada serviço.
 
-### 💰 Financeiro
-- Integração com Mercado Pago
-- Comissionamento automático (parte do barbeiro / parte da casa)
-- Relatórios de faturamento com filtro por período
-- Dashboard com métricas diárias
+### 💰 Financeiro e SaaS
+- Motor de assinaturas SaaS para os donos de barbearias.
+- Bloqueio automático de acesso à plataforma por inadimplência (integrado direto na camada de Segurança).
+- Integração de pagamentos via Webhooks (Mercado Pago).
+- Geração de relatórios financeiros em PDF.
+- Comissionamento automático (divisão entre parte do barbeiro e parte da casa).
+
+### 📱 Mensageria e Lembretes
+- Disparo de notificações e lembretes para clientes via WhatsApp.
+- Logs e rastreabilidade de mensagens enviadas.
+- Alertas instantâneos para o barbeiro a cada novo agendamento.
 
 ### 🏢 Multi-tenancy
-- Suporte a múltiplos barbeiros por barbearia
-- Cada dono gerencia sua própria equipe e agenda
+- Suporte a múltiplos barbeiros trabalhando na mesma barbearia (Dono e Funcionários).
+- Isolamento de dados: cada dono gerencia sua própria equipe e agenda.
 
 ---
 
@@ -51,35 +59,35 @@ e agenda — enquanto clientes agendam horários online sem precisar de cadastro
 
 | Camada | Tecnologia |
 |---|---|
-| Linguagem | Java 17 |
-| Framework | Spring Boot 3 |
-| Segurança | Spring Security + JWT |
-| Persistência | Spring Data JPA (Hibernate) |
-| Banco de dados | PostgreSQL |
-| Migrations | Flyway |
-| Pagamentos | Mercado Pago API |
-| Notificações | OneSignal (Push) |
-| Deploy | Railway + Docker |
+| **Linguagem** | Java 17 |
+| **Framework** | Spring Boot 3.x |
+| **Segurança** | Spring Security + JWT |
+| **Rate Limit** | Bucket4j + Caffeine Cache |
+| **Persistência** | Spring Data JPA (Hibernate) |
+| **Banco de dados** | PostgreSQL 15 |
+| **Migrations** | Flyway |
+| **Integrações** | Mercado Pago API, WhatsApp API |
+| **Deploy** | Railway + Docker |
 
 ---
 
-## 🗄️ Modelo de Dados
+## 🗄️ Modelo de Dados (Resumo)
 
-```
-Barbeiro (dono ou funcionário)
-    ↓
-Expediente (grade de horários por dia da semana)
-    ↓
-Agendamento (AGENDADO → CONFIRMADO → CONCLUÍDO / CANCELADO)
-    ↑               ↑
-  Cliente        Serviço
+```text
+Barbeiro (Dono/Admin ou Funcionário)
+    ├── Assinatura (Plano SaaS)
+    └── Expediente (Grade de horários por dia da semana)
+          ↓
+     Agendamento (AGENDADO → CONFIRMADO → CONCLUÍDO / CANCELADO)
+          ↑               ↑
+       Cliente         Serviço
 ```
 
-Decisões técnicas:
-- FetchType.LAZY em todos os relacionamentos — evita N+1
-- @Version no Agendamento — controle de concorrência otimista
-- Índices nas colunas de busca frequente — performance em produção
-- BigDecimal para valores financeiros — precisão em cálculos monetários
+**Decisões técnicas de destaque:**
+- `FetchType.LAZY` em todos os relacionamentos para evitar o problema N+1.
+- Uso de `@Version` no Agendamento para controle de concorrência otimista (evita overbooking simultâneo).
+- Índices nas colunas de busca frequente otimizando a performance em produção.
+- `BigDecimal` padronizado para valores financeiros, garantindo precisão absoluta em cálculos monetários e comissões.
 
 ---
 
@@ -87,7 +95,7 @@ Decisões técnicas:
 
 ### Pré-requisitos
 - Java 17+
-- Docker e Docker Compose
+- Docker e Docker Compose (para rodar o banco de dados facilmente)
 
 ### 1. Clone o repositório
 ```bash
@@ -96,9 +104,9 @@ cd barbearia-backend
 ```
 
 ### 2. Configure as variáveis de ambiente
-Crie um arquivo `.env` na raiz com as variáveis abaixo.
+Crie um arquivo `.env` na raiz copiando as propriedades essenciais.
 
-### 3. Suba o banco com Docker
+### 3. Suba o banco de dados com Docker
 ```bash
 docker-compose up -d
 ```
@@ -112,7 +120,7 @@ A API estará disponível em `http://localhost:8080`
 
 ---
 
-## 🔑 Variáveis de Ambiente
+## 🔑 Variáveis de Ambiente Necessárias
 
 ```env
 PGHOST=localhost
@@ -122,8 +130,7 @@ PGUSER=postgres
 PGPASSWORD=sua_senha
 JWT_SECRET=seu_secret_aqui
 MP_ACCESS_TOKEN=seu_token_mercadopago
-ONESIGNAL_APP_ID=seu_app_id
-ONESIGNAL_API_KEY=sua_api_key
+# Adicione também chaves de APIs de notificação/WhatsApp conforme seu provedor
 ```
 
 ---
@@ -131,54 +138,50 @@ ONESIGNAL_API_KEY=sua_api_key
 ## 📡 Principais Endpoints
 
 ### Autenticação
-```
+```http
 POST /auth/login                           → Login do barbeiro/admin
 ```
 
-### Agendamento (público — cliente anônimo)
-```
+### Agendamento (Fluxo do Cliente Final - Público)
+```http
 POST   /agendamentos                       → Criar agendamento
-GET    /agendamentos/disponibilidade       → Consultar horários disponíveis
-GET    /agendamentos/buscar?telefone=      → Buscar por telefone
-DELETE /agendamentos/cliente/{id}          → Cancelar agendamento
+GET    /agendamentos/disponibilidade       → Consultar horários vagos (cálculo dinâmico)
+GET    /agendamentos/buscar?telefone=      → Acompanhar agendamento por telefone
+DELETE /agendamentos/cliente/{id}          → Cancelar agendamento pelo cliente
 ```
 
-### Gestão (autenticado)
-```
-GET  /agendamentos/admin/todos             → Listar todos (dono)
-PUT  /agendamentos/{id}/confirmar          → Confirmar
-PUT  /agendamentos/{id}/concluir           → Concluir
-GET  /agendamentos/admin/financeiro        → Relatório financeiro
-```
-
-### Barbeiros e Serviços
-```
-GET  /barbeiros/**                         → Listar barbeiros
-GET  /servicos/**                          → Listar serviços
-POST /barbeiros/registro                   → Cadastrar barbearia
+### Gestão (Fluxo do Barbeiro Logado - Protegido)
+```http
+GET  /agendamentos/admin/todos             → Listar todos os agendamentos da casa
+PUT  /agendamentos/{id}/confirmar          → Marcar como confirmado
+PUT  /agendamentos/{id}/concluir           → Marcar como concluído
+GET  /agendamentos/admin/financeiro        → Extrair relatório financeiro
+GET  /agendamentos/admin/pdf               → Gerar PDF com fechamento do dia/mês
 ```
 
 ---
 
 ## 🏗️ Arquitetura
 
-```
+O projeto segue rigorosamente a **Arquitetura em 3 Camadas** (Controllers, Services, Repositories).
+
+```text
 src/
-├── controller/        → Endpoints REST
-├── service/           → Regras de negócio
-├── repository/        → Acesso ao banco
-├── model/             → Entidades JPA
-├── dtos/              → DTOs de request
-├── dtosResponse/      → DTOs de response
+├── controller/        → Camada de Apresentação (Endpoints REST HTTP)
+├── service/           → Camada de Negócio (Onde mora toda a inteligência e validações)
+├── repository/        → Camada de Acesso a Dados (Queries e JPA)
+├── model/             → Entidades JPA mapeadas para o PostgreSQL
+├── dtos/              → DTOs de entrada (Requests e validações de formulário)
+├── dtosResponse/      → DTOs de saída (Responses limpos, sem vazar dados sensíveis)
 └── infra/
-    ├── security/      → JWT, Filtro, Spring Security
-    └── TratadorDeErros.java
+    ├── security/      → Configuração do JWT, Filtros Customizados, Rate Limit, Spring Security
+    └── TratadorDeErros.java → Global Exception Handler (@RestControllerAdvice)
 ```
 
-Decisões de arquitetura:
-- Entidades nunca expostas diretamente na API — sempre via DTOs
-- Exceções de negócio tratadas globalmente com @RestControllerAdvice
-- Separação clara entre DTOs de request e response
+**Benefícios Alcançados com esta Arquitetura:**
+- Entidades do banco nunca são expostas diretamente na API (uso estrito de DTOs).
+- Exceções de negócio são centralizadas e tratadas globalmente retornando JSONs amigáveis em vez de StackTraces.
+- Baixo acoplamento facilitando testes unitários e manutenções futuras.
 
 ---
 
