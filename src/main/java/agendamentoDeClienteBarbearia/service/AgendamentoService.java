@@ -61,7 +61,8 @@ public class AgendamentoService {
 
         LocalDateTime dataInicio = dados.dataHoraInicio();
 
-        if (dataInicio == null) throw new RegraDeNegocioException("Data é obrigatória");
+        if (dataInicio == null)
+            throw new RegraDeNegocioException("Data é obrigatória");
 
         if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
             throw new RegraDeNegocioException("Não é possível agendar em datas passadas.");
@@ -76,8 +77,6 @@ public class AgendamentoService {
         if (agendamentoRepository.existeConflitoDeHorario(barbeiro.getId(), dataInicio, dataFim)) {
             throw new RegraDeNegocioException("Este horário já está ocupado.");
         }
-
-
 
         // --- CRIAÇÃO ---
         Agendamento agendamento = new Agendamento();
@@ -108,13 +107,15 @@ public class AgendamentoService {
         Agendamento agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Agendamento não encontrado."));
 
-        if (agendamento.getStatus() == StatusAgendamento.CANCELADO || agendamento.getStatus() == StatusAgendamento.CONCLUIDO) {
+        if (agendamento.getStatus() == StatusAgendamento.CANCELADO
+                || agendamento.getStatus() == StatusAgendamento.CONCLUIDO) {
             throw new RegraDeNegocioException("Não é possível remarcar um agendamento cancelado ou concluído.");
         }
 
         LocalDateTime dataInicio = dados.novaDataHoraInicio();
 
-        if (dataInicio == null) throw new RegraDeNegocioException("A nova data é obrigatória");
+        if (dataInicio == null)
+            throw new RegraDeNegocioException("A nova data é obrigatória");
 
         if (dataInicio.isBefore(LocalDateTime.now(TIMEZONE_BRASIL))) {
             throw new RegraDeNegocioException("Não é possível remarcar para datas passadas.");
@@ -133,10 +134,10 @@ public class AgendamentoService {
 
         agendamento.setDataHoraInicio(dataInicio);
         agendamento.setDataHoraFim(dataFim);
-        
+
         // Se já estava confirmado, volta para agendado para o barbeiro saber que mudou,
         // ou mantém o status. Normalmente volta pra AGENDADO.
-        agendamento.setStatus(StatusAgendamento.AGENDADO); 
+        agendamento.setStatus(StatusAgendamento.AGENDADO);
 
         Agendamento agendamentoSalvo = agendamentoRepository.save(agendamento);
 
@@ -171,7 +172,7 @@ public class AgendamentoService {
 
     @Transactional
     @PreAuthorize("@securityService.isBarbeiroDoAgendamento(#id, authentication.name) or hasRole('DONO')")
-    public void cancelarPeloBarbeiro(Long id,String emailLogado) {
+    public void cancelarPeloBarbeiro(Long id, String emailLogado) {
         this.cancelar(id, emailLogado);
         log.info("[AUDITORIA - AGENDAMENTO] Agendamento ID: {} CANCELADO. Ação realizada por: {}", id, emailLogado);
     }
@@ -179,10 +180,9 @@ public class AgendamentoService {
     @Transactional
     public void confirmar(Long id, String emailLogado) {
         var agendamento = agendamentoRepository.findById(id)
-                        .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
+                .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
         if (!agendamento.getBarbeiro().getEmail().equals(emailLogado) &&
-        !agendamento.getBarbeiro().getDono().getEmail().equals(emailLogado))
-        {
+                !agendamento.getBarbeiro().getDono().getEmail().equals(emailLogado)) {
             throw new AccessDeniedException("Acesso negado");
         }
         agendamento.setStatus(StatusAgendamento.CONFIRMADO);
@@ -193,14 +193,11 @@ public class AgendamentoService {
         var agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new RegraDeNegocioException("Agendamento nao encontrado"));
         if (!agendamento.getBarbeiro().getEmail().equals(emailLogado) &&
-                !agendamento.getBarbeiro().getDono().getEmail().equals(emailLogado))
-        {
+                !agendamento.getBarbeiro().getDono().getEmail().equals(emailLogado)) {
             throw new AccessDeniedException("Acesso negado");
         }
         agendamento.setStatus(StatusAgendamento.CONCLUIDO);
     }
-
-
 
     /**
      * Ponto de entrada para o Controller.
@@ -215,67 +212,60 @@ public class AgendamentoService {
      */
     @Transactional(readOnly = true)
     public List<String> listarHorariosDisponiveis(Long barbeiroId, Long servicoId, LocalDate data) {
-        // 1. Validar Serviço
-        Servico servico = servicoRepository.findById(servicoId)
-                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"));
+        int duracaoMinutos = buscarDuracaoServico(servicoId);
 
-        int duracaoMinutos = servico.getDuracaoEmMinutos();
-
-        // 2. Buscar Configuração de Expediente
-        DayOfWeek diaSolicitado = data.getDayOfWeek();
-        Optional<Expediente> expedienteOpt = expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, diaSolicitado);
-
-        // Se não tem configuração ou está marcado como folga, retorna lista vazia
-        if (expedienteOpt.isEmpty() || !expedienteOpt.get().isTrabalha()) {
+        Optional<Expediente> expedienteOpt = buscarExpedienteValido(barbeiroId, data);
+        if (expedienteOpt.isEmpty()) {
             return new ArrayList<>();
         }
 
-        Expediente expediente = expedienteOpt.get();
-        LocalTime inicioExpediente = expediente.getAbertura();
-        LocalTime fimExpediente = expediente.getFechamento();
-
-        List<String> horariosLivres = new ArrayList<>();
-        LocalTime slotAtual = inicioExpediente;
-
-        LocalDate hojeLocal = LocalDate.now(TIMEZONE_BRASIL);
-        
-        // Se a data solicitada for no passado, não retorna nenhum horário
-        if (data.isBefore(hojeLocal)) {
-            return horariosLivres;
+        if (data.isBefore(LocalDate.now(TIMEZONE_BRASIL))) {
+            return new ArrayList<>();
         }
 
-        boolean isHoje = data.equals(hojeLocal);
+        return calcularSlotsDisponiveis(barbeiroId, data, duracaoMinutos, expedienteOpt.get());
+    }
+
+    private int buscarDuracaoServico(Long servicoId) {
+        return servicoRepository.findById(servicoId)
+                .orElseThrow(() -> new RegraDeNegocioException("Serviço não encontrado"))
+                .getDuracaoEmMinutos();
+    }
+
+    private Optional<Expediente> buscarExpedienteValido(Long barbeiroId, LocalDate data) {
+        return expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, data.getDayOfWeek())
+                .filter(Expediente::isTrabalha);
+    }
+
+    private List<String> calcularSlotsDisponiveis(Long barbeiroId, LocalDate data, int duracaoMinutos,
+            Expediente expediente) {
+        List<String> horariosLivres = new ArrayList<>();
+        LocalTime slotAtual = expediente.getAbertura();
+        LocalTime fimExpediente = expediente.getFechamento();
+
+        boolean isHoje = data.equals(LocalDate.now(TIMEZONE_BRASIL));
         LocalTime horaLimiteAgendamento = LocalTime.now(TIMEZONE_BRASIL).plusMinutes(15);
 
-        // 3. Loop de Slots (Intervalo padrão de 30min para visualização)
-        // Verifica se o serviço inteiro cabe antes do fechamento
         while (!slotAtual.plusMinutes(duracaoMinutos).isAfter(fimExpediente)) {
-
-            // Se for hoje, ignora horários que já passaram (considerando 15 min de margem)
             if (isHoje && slotAtual.isBefore(horaLimiteAgendamento)) {
                 slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
                 continue;
             }
 
-            LocalDateTime dataHoraInicio = data.atTime(slotAtual);
-            LocalDateTime dataHoraFim = dataHoraInicio.plusMinutes(duracaoMinutos);
-
-            // 4. Verifica colisão com Agendamentos ou Bloqueios existentes
-            boolean existeConflito = agendamentoRepository.existeConflitoDeHorario(
-                    barbeiroId,
-                    dataHoraInicio,
-                    dataHoraFim
-            );
-
-            if (!existeConflito) {
+            if (!existeConflitoParaSlot(barbeiroId, data, slotAtual, duracaoMinutos)) {
                 horariosLivres.add(slotAtual.toString());
             }
 
-            // Avança o slot
             slotAtual = slotAtual.plusMinutes(INTERVALO_AGENDA_MINUTOS);
         }
 
         return horariosLivres;
+    }
+
+    private boolean existeConflitoParaSlot(Long barbeiroId, LocalDate data, LocalTime inicioSlot, int duracaoMinutos) {
+        LocalDateTime dataHoraInicio = data.atTime(inicioSlot);
+        LocalDateTime dataHoraFim = dataHoraInicio.plusMinutes(duracaoMinutos);
+        return agendamentoRepository.existeConflitoDeHorario(barbeiroId, dataHoraInicio, dataHoraFim);
     }
 
     @Transactional(readOnly = true)
@@ -311,13 +301,14 @@ public class AgendamentoService {
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroId(Long barbeiroId,String emailLogado) {
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroId(Long barbeiroId, String emailLogado) {
         return agendamentoRepository.findByBarbeiroIdOrderByDataHoraInicioDesc(barbeiroId, emailLogado)
                 .stream().map(DetalhamentoAgendamentoDTO::new).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio, LocalDateTime fim, String emailLogado) {
+    public List<DetalhamentoAgendamentoDTO> listarPorBarbeiroEPeriodo(Long barbeiroId, LocalDateTime inicio,
+            LocalDateTime fim, String emailLogado) {
         return agendamentoRepository.findByBarbeiroIdAndDataHoraInicioBetween(barbeiroId, inicio, fim, emailLogado)
                 .stream()
                 .map(DetalhamentoAgendamentoDTO::new)
@@ -339,8 +330,11 @@ public class AgendamentoService {
                 .orElseThrow(() -> new RegraDeNegocioException("Agendamento não encontrado."));
 
         // 2. Proteção SaaS: Garante que o agendamento pertence à mesma Barbearia (Dono)
-        Long donoIdLogado = barbeiroLogado.getDono() != null ? barbeiroLogado.getDono().getId() : barbeiroLogado.getId();
-        Long donoIdAgendamento = agendamento.getBarbeiro().getDono() != null ? agendamento.getBarbeiro().getDono().getId() : agendamento.getBarbeiro().getId();
+        Long donoIdLogado = barbeiroLogado.getDono() != null ? barbeiroLogado.getDono().getId()
+                : barbeiroLogado.getId();
+        Long donoIdAgendamento = agendamento.getBarbeiro().getDono() != null
+                ? agendamento.getBarbeiro().getDono().getId()
+                : agendamento.getBarbeiro().getId();
 
         if (!donoIdLogado.equals(donoIdAgendamento)) {
             throw new RegraDeNegocioException("Agendamento não encontrado.");
@@ -365,8 +359,9 @@ public class AgendamentoService {
         for (Agendamento a : agendamentos) {
             BigDecimal vTotal = a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0");
             total = total.add(vTotal);
-            
-            if (a.getBarbeiro() != null && agendamentoDeClienteBarbearia.PerfilAcesso.ADMIN.equals(a.getBarbeiro().getPerfil())) {
+
+            if (a.getBarbeiro() != null
+                    && agendamentoDeClienteBarbearia.PerfilAcesso.ADMIN.equals(a.getBarbeiro().getPerfil())) {
                 // A comissão do dono é o lucro da casa, não uma despesa a ser paga.
                 casa = casa.add(vTotal);
             } else {
@@ -377,7 +372,7 @@ public class AgendamentoService {
 
         Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
                 .orElseThrow(() -> new EntityNotFoundException("Dono não encontrado"));
-        
+
         List<Barbeiro> equipe = barbeiroRepository.findAllByLoja(dono.getId());
         BigDecimal totalDespesaFixa = new BigDecimal("0");
         for (Barbeiro b : equipe) {
@@ -389,13 +384,15 @@ public class AgendamentoService {
         repasse = repasse.add(totalDespesaFixa);
         casa = casa.subtract(totalDespesaFixa);
 
-        return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(), agendamentos.size());
+        return new ResumoFinanceiroDTO(total.doubleValue(), casa.doubleValue(), repasse.doubleValue(),
+                agendamentos.size());
     }
 
     // --- 6. BLOQUEIOS ---
     @Transactional
     public void bloquearHorario(String emailBarbeiro, BloqueioDTO dados) {
-        if (!dados.isHorarioValido()) throw new RegraDeNegocioException("Intervalo inválido.");
+        if (!dados.isHorarioValido())
+            throw new RegraDeNegocioException("Intervalo inválido.");
 
         Barbeiro barbeiro = barbeiroRepository.findByEmail(emailBarbeiro)
                 .orElseThrow(() -> new EntityNotFoundException("Barbeiro não encontrado."));
@@ -422,7 +419,8 @@ public class AgendamentoService {
 
     private void calcularDivisaoFinanceira(Agendamento agendamento, Barbeiro barbeiro) {
         BigDecimal preco = agendamento.getValorCobrado();
-        BigDecimal comissao = barbeiro.getComissaoPorcentagem() != null ? barbeiro.getComissaoPorcentagem() : new BigDecimal("50.0");
+        BigDecimal comissao = barbeiro.getComissaoPorcentagem() != null ? barbeiro.getComissaoPorcentagem()
+                : new BigDecimal("50.0");
         BigDecimal valorBarbeiro = preco.multiply(comissao).divide(new BigDecimal("100"), 2, RoundingMode.HALF_EVEN);
         agendamento.setValorTotal(preco);
         agendamento.setValorBarbeiro(valorBarbeiro);
@@ -440,19 +438,21 @@ public class AgendamentoService {
 
         // Busca configuração
         Expediente expediente = expedienteRepository.findByBarbeiroIdAndDiaSemana(barbeiroId, dia)
-                .orElseThrow(() -> new RegraDeNegocioException("O profissional não possui agenda configurada para " + dia));
+                .orElseThrow(
+                        () -> new RegraDeNegocioException("O profissional não possui agenda configurada para " + dia));
 
         if (!expediente.isTrabalha()) {
             throw new RegraDeNegocioException("O profissional não trabalha neste dia (" + dia + ").");
         }
 
-        if (horaAgendamento.isBefore(expediente.getAbertura()) || horaFimAgendamento.isAfter(expediente.getFechamento())) {
+        if (horaAgendamento.isBefore(expediente.getAbertura())
+                || horaFimAgendamento.isAfter(expediente.getFechamento())) {
             throw new RegraDeNegocioException(
                     String.format("Horário indisponível. Funcionamento hoje: %s às %s",
-                            expediente.getAbertura(), expediente.getFechamento())
-            );
+                            expediente.getAbertura(), expediente.getFechamento()));
         }
     }
+
     @Transactional(readOnly = true)
     public RelatorioFinanceiroCompletoDTO gerarExtratoFinanceiro(String emailDono, LocalDate inicio, LocalDate fim) {
         // Se não mandar data, pega os últimos 30 dias
@@ -471,8 +471,9 @@ public class AgendamentoService {
         for (Agendamento a : agendamentos) {
             BigDecimal vTotal = a.getValorTotal() != null ? a.getValorTotal() : new BigDecimal("0");
             total = total.add(vTotal);
-            
-            if (a.getBarbeiro() != null && agendamentoDeClienteBarbearia.PerfilAcesso.ADMIN.equals(a.getBarbeiro().getPerfil())) {
+
+            if (a.getBarbeiro() != null
+                    && agendamentoDeClienteBarbearia.PerfilAcesso.ADMIN.equals(a.getBarbeiro().getPerfil())) {
                 // A comissão do dono é o lucro da casa, não uma despesa a ser paga.
                 casa = casa.add(vTotal);
             } else {
@@ -483,7 +484,7 @@ public class AgendamentoService {
 
         Barbeiro dono = barbeiroRepository.findByEmail(emailDono)
                 .orElseThrow(() -> new EntityNotFoundException("Dono não encontrado"));
-        
+
         List<Barbeiro> equipe = barbeiroRepository.findAllByLoja(dono.getId());
         BigDecimal totalDespesaFixa = new BigDecimal("0");
         for (Barbeiro b : equipe) {
@@ -503,4 +504,4 @@ public class AgendamentoService {
         return new RelatorioFinanceiroCompletoDTO(total, casa, comissoes, agendamentos.size(), extrato);
     }
 
-    }
+}
