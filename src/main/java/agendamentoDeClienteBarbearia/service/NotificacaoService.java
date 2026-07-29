@@ -112,8 +112,9 @@ public class NotificacaoService {
                 String tempoStr = regra.getTempo().toLowerCase();
 
                 if (tempoStr.contains("2 horas")) {
-                    inicioBusca = agora.plusHours(2);
-                    fimBusca = inicioBusca.plusMinutes(15);
+                    // Busca qualquer agendamento que vai acontecer nas próximas 2 horas
+                    inicioBusca = agora;
+                    fimBusca = agora.plusHours(2).plusMinutes(5);
                 }
                 else if (tempoStr.contains("1 dia") || tempoStr.contains("personalizado")) {
                     if (regra.getHora() != null && !horaAtual.isBefore(regra.getHora()) && horaAtual.isBefore(regra.getHora().plusMinutes(16))) {
