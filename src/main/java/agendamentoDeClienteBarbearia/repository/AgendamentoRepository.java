@@ -246,7 +246,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
         JOIN FETCH a.barbeiro b
         WHERE a.dataHoraInicio BETWEEN :inicio AND :fim
         AND (b.dono.id = :donoId OR b.id = :donoId)
-        AND a.status = agendamentoDeClienteBarbearia.StatusAgendamento.AGENDADO
+        AND a.status IN (agendamentoDeClienteBarbearia.StatusAgendamento.AGENDADO, agendamentoDeClienteBarbearia.StatusAgendamento.CONFIRMADO)
     """)
     List<Agendamento> buscarAgendamentosParaLembreteDinamico(
             @Param("inicio") LocalDateTime inicio,

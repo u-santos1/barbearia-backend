@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -60,7 +61,7 @@ public class BarbeiroServiceTest {
 
     @Test
     void deveCadastrarBarbeiroEMockarExpediente(){
-        var dto = new CadastroBarbeiroDTO("Wesley", "wesley@email.com", "123456", "Corte", "21993434258", true, 100.0, new java.math.BigDecimal("0"));
+        var dto = new CadastroBarbeiroDTO("Wesley", "wesley@email.com", "123456", "Corte", "21993434258", true, 100.0, new BigDecimal("0"));
 
         // Criamos um objeto de barbeiro "de mentira" para o mock retornar
         Barbeiro barbeiroFake = new Barbeiro();
