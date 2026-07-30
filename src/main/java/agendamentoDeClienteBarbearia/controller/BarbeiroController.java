@@ -119,7 +119,7 @@ public class BarbeiroController {
     }
     @PutMapping("/perfil")
     public ResponseEntity<DetalhamentoBarbeiroDTO> atualizarPerfil(
-            @RequestBody AtualizacaoPerfilDTO dados,
+            @RequestBody @Valid AtualizacaoPerfilDTO dados,
             org.springframework.security.core.Authentication authentication) {
 
         // authentication.getName() pega o email do usuário logado via Token JWT

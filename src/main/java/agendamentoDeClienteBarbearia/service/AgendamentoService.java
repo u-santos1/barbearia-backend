@@ -53,6 +53,12 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("Este barbeiro não está atendendo no momento.");
         }
 
+        // TRAVA SAAS: Se o dono da barbearia estiver bloqueado, o cliente não pode agendar
+        Barbeiro dono = barbeiro.getDono() != null ? barbeiro.getDono() : barbeiro;
+        if (dono.isAcessoBloqueado()) {
+            throw new RegraDeNegocioException("A barbearia encontra-se com o plano inativo. Por favor, tente novamente mais tarde.");
+        }
+
         Cliente cliente = clienteRepository.findById(dados.clienteId())
                 .orElseThrow(() -> new RegraDeNegocioException("Cliente não encontrado."));
 
