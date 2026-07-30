@@ -1,7 +1,7 @@
 package agendamentoDeClienteBarbearia.dtosResponse;
 
 
-
+import agendamentoDeClienteBarbearia.StatusAgendamento;
 import agendamentoDeClienteBarbearia.model.Agendamento;
 
 import java.math.BigDecimal;

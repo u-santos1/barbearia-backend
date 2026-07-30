@@ -1,6 +1,8 @@
 package agendamentoDeClienteBarbearia.dtosResponse;
 
-
+import agendamentoDeClienteBarbearia.dtos.AgendamentoDTO;
+import agendamentoDeClienteBarbearia.model.Agendamento;
+import agendamentoDeClienteBarbearia.model.Barbeiro;
 
 import java.math.BigDecimal;
 

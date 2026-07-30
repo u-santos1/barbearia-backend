@@ -1,7 +1,5 @@
 package agendamentoDeClienteBarbearia.dtos;
 
-import java.math.BigDecimal;
-
 import jakarta.validation.constraints.*;
 
 
@@ -32,6 +30,6 @@ public record CadastroBarbeiroDTO(
         Boolean vaiCortarCabelo,
              // Para saber se agenda serviços
         Double comissaoPorcentagem,    // Para o cálculo financeiro (ex: 50.0)
-
-        BigDecimal despesa
+        
+        java.math.BigDecimal despesa
 ) {}

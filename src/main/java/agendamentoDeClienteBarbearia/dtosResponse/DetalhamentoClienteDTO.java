@@ -6,7 +6,11 @@ import agendamentoDeClienteBarbearia.model.Cliente;
 
 
 
+import agendamentoDeClienteBarbearia.model.Cliente;
 
+
+
+import agendamentoDeClienteBarbearia.model.Cliente;
 
 public record DetalhamentoClienteDTO(
         Long id,

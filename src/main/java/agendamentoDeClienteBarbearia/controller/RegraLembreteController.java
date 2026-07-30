@@ -12,7 +12,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
-import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -26,7 +25,7 @@ public class RegraLembreteController {
     private final LogLembreteRepository logLembreteRepository;
 
     @PostMapping
-    public ResponseEntity<DetalhamentoRegraLembreteDTO> criar(@RequestBody @Valid DadosRegraLembreteDTO dados,
+    public ResponseEntity<DetalhamentoRegraLembreteDTO> criar(@RequestBody DadosRegraLembreteDTO dados,
                                                               @AuthenticationPrincipal UserDetails usuario,
                                                               UriComponentsBuilder uriBuilder) {
         var regra = service.criar(dados, usuario.getUsername());
@@ -41,7 +40,7 @@ public class RegraLembreteController {
 
     @PutMapping("/{id}")
     public ResponseEntity<DetalhamentoRegraLembreteDTO> atualizar(@PathVariable Long id,
-                                                                  @RequestBody @Valid DadosRegraLembreteDTO dados,
+                                                                  @RequestBody DadosRegraLembreteDTO dados,
                                                                   @AuthenticationPrincipal UserDetails usuario) {
         return ResponseEntity.ok(service.atualizar(id, dados, usuario.getUsername()));
     }

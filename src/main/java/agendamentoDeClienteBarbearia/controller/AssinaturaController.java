@@ -109,7 +109,7 @@ public class AssinaturaController {
     // Endpoint para gerar link de pagamento MP (para assinatura)
     @PostMapping("/mercadopago/criar-preferencia")
     public ResponseEntity<Map<String, String>> criarPreferenciaMp(
-            @Valid @RequestBody AssinaturaDTO.AssinarDTO dto,
+            @RequestBody AssinaturaDTO.AssinarDTO dto,
             @AuthenticationPrincipal Barbeiro barbeiro) {
 
         return ResponseEntity.ok(Map.of(

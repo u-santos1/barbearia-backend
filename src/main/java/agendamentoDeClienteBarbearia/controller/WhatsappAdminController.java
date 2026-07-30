@@ -20,7 +20,7 @@ public class WhatsappAdminController {
     private final WhatsappAdminService service;
 
     private String gerarNomeInstancia(UserDetails userDetails){
-        return "zap-" + userDetails.getUsername().replaceAll("[^a-zA-Z0-9]", "");
+        return "zap-" + userDetails.getUsername().replace("[^a-zA-Z0-9]", "");
     }
 
     // 1. VERIFICAR STATUS

@@ -3,7 +3,6 @@ package agendamentoDeClienteBarbearia.dtosResponse;
 import agendamentoDeClienteBarbearia.TipoPlano;
 import agendamentoDeClienteBarbearia.model.Barbeiro;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
@@ -19,7 +18,7 @@ public record DetalhamentoBarbeiroDTO(
         LocalDateTime createdAt,
         Boolean acessoBloqueado,
         Integer diasRestantesTrial,
-        BigDecimal despesa
+        java.math.BigDecimal despesa
 ) {
     private static final int DIAS_TRIAL = 7;
 

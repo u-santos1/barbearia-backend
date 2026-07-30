@@ -13,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +28,7 @@ public class ExpedienteController {
 
     // Salva ou Atualiza a semana inteira do Barbeiro
     @PostMapping("/{barbeiroId}")
-    public ResponseEntity<Void> configurarExpediente(@PathVariable Long barbeiroId, @RequestBody @Valid List<DadosExpedienteDTO> dados) {
+    public ResponseEntity<Void> configurarExpediente(@PathVariable Long barbeiroId, @RequestBody List<DadosExpedienteDTO> dados) {
         service.configurarExpediente(barbeiroId, dados);
         return ResponseEntity.ok().build();
     }

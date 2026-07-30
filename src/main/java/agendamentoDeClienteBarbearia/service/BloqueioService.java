@@ -25,7 +25,7 @@ public class BloqueioService {
     private final BloqueioRepository repository;
     private final BarbeiroRepository barbeiroRepository;
 
-    // INJEÇÃO OBRIGATÓRIA: Para evitar colisão com clientes
+    //  INJEÇÃO OBRIGATÓRIA: Para evitar colisão com clientes
     private final AgendamentoRepository agendamentoRepository;
 
     // ========================================================
@@ -37,8 +37,7 @@ public class BloqueioService {
         Barbeiro usuarioLogado = barbeiroRepository.findByEmail(emailLogado)
                 .orElseThrow(() -> new RegraDeNegocioException("Usuário logado não encontrado"));
 
-        // 2. Define quem será bloqueado (Proteção contra bloquear barbeiro de outro
-        // dono)
+        // 2. Define quem será bloqueado (Proteção contra bloquear barbeiro de outro dono)
         Barbeiro alvo = resolverAlvoDoBloqueio(dados.barbeiroId(), usuarioLogado);
 
         // 3. Validações de Data
@@ -54,11 +53,11 @@ public class BloqueioService {
         boolean temCliente = agendamentoRepository.existeConflitoDeHorario(
                 alvo.getId(),
                 dados.inicio(),
-                dados.fim());
+                dados.fim()
+        );
 
         if (temCliente) {
-            throw new RegraDeNegocioException(
-                    "Não é possível bloquear: Existem clientes agendados neste intervalo. Cancele os agendamentos primeiro.");
+            throw new RegraDeNegocioException("Não é possível bloquear: Existem clientes agendados neste intervalo. Cancele os agendamentos primeiro.");
         }
 
         // 6. Salvar
@@ -148,11 +147,8 @@ public class BloqueioService {
     }
 
     private void validarDatas(LocalDateTime inicio, LocalDateTime fim) {
-        if (inicio == null || fim == null)
-            throw new RegraDeNegocioException("Datas são obrigatórias.");
-        if (inicio.isBefore(LocalDateTime.now()))
-            throw new RegraDeNegocioException("Bloqueio no passado não permitido.");
-        if (inicio.isAfter(fim) || inicio.isEqual(fim))
-            throw new RegraDeNegocioException("Data final deve ser maior que a inicial.");
+        if (inicio == null || fim == null) throw new RegraDeNegocioException("Datas são obrigatórias.");
+        if (inicio.isBefore(LocalDateTime.now())) throw new RegraDeNegocioException("Bloqueio no passado não permitido.");
+        if (inicio.isAfter(fim) || inicio.isEqual(fim)) throw new RegraDeNegocioException("Data final deve ser maior que a inicial.");
     }
 }

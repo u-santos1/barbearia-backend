@@ -12,7 +12,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import jakarta.validation.Valid;
 
 @Slf4j
 @RestController
@@ -27,7 +26,7 @@ public class PagamentoController {
     // 1. GERAR PIX PARA RENOVAÇÃO / UPGRADE (SAAS)
     // ========================================================
     @PostMapping("/upgrade")
-    public ResponseEntity<RespostaPixDTO> criarPagamento(@RequestBody @Valid UpgradeRequestDTO dados) {
+    public ResponseEntity<RespostaPixDTO> criarPagamento(@RequestBody UpgradeRequestDTO dados) {
         // 1. Identifica o barbeiro logado com segurança pelo Token JWT
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         DetalhamentoBarbeiroDTO barbeiro = barbeiroService.buscarPorEmail(email);

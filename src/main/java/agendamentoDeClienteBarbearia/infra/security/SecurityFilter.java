@@ -13,10 +13,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class SecurityFilter extends OncePerRequestFilter {
@@ -77,7 +75,9 @@ public class SecurityFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (Exception e) {
-                log.error("ERRO NO FILTRO DE SEGURANÇA: {}", e.getMessage(), e);
+
+                System.out.println(" ERRO NO FILTRO DE SEGURANÇA: " + e.getMessage());
+                e.printStackTrace();
                 SecurityContextHolder.clearContext();
             }
         }
