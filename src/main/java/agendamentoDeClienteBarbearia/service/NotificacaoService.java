@@ -103,6 +103,7 @@ public class NotificacaoService {
         LocalTime horaAtual = agora.toLocalTime();
 
         List<RegraLembrete> regras = regraLembreteRepository.findByAtivoTrue();
+        log.info("[DEBUG LEMBRETES] Rotina iniciada às {}. Regras ativas encontradas: {}", agora, regras.size());
 
         for (RegraLembrete regra : regras) {
             LocalDateTime inicioBusca = null;
@@ -120,12 +121,16 @@ public class NotificacaoService {
                     if (regra.getHora() != null && !horaAtual.isBefore(regra.getHora()) && horaAtual.isBefore(regra.getHora().plusMinutes(16))) {
                         inicioBusca = agora.plusDays(1).with(LocalTime.MIN);
                         fimBusca = agora.plusDays(1).with(LocalTime.MAX);
+                    } else {
+                        log.info("[DEBUG LEMBRETES] Regra ID {} ('1 dia'): Fora da janela de disparo. Hora da regra: {}, Hora atual: {}", regra.getId(), regra.getHora(), horaAtual);
                     }
                 }
                 else if (tempoStr.contains("mesmo dia")) {
                     if (regra.getHora() != null && !horaAtual.isBefore(regra.getHora()) && horaAtual.isBefore(regra.getHora().plusMinutes(16))) {
                         inicioBusca = agora.with(LocalTime.MIN);
                         fimBusca = agora.with(LocalTime.MAX);
+                    } else {
+                        log.info("[DEBUG LEMBRETES] Regra ID {} ('mesmo dia'): Fora da janela de disparo. Hora da regra: {}, Hora atual: {}", regra.getId(), regra.getHora(), horaAtual);
                     }
                 }
             }
@@ -133,11 +138,16 @@ public class NotificacaoService {
             if (inicioBusca != null && fimBusca != null) {
                 List<Agendamento> agendamentos = agendamentoRepository
                         .buscarAgendamentosParaLembreteDinamico(inicioBusca, fimBusca, regra.getDono().getId());
+                
+                log.info("[DEBUG LEMBRETES] Regra ID {}: Buscando agendamentos entre {} e {}. Encontrados: {}", regra.getId(), inicioBusca, fimBusca, agendamentos.size());
 
                 for (Agendamento agendamento : agendamentos) {
                     // ANTI-SPAM: Só envia se não existir log na tabela
                     if (!logLembreteRepository.existsByAgendamentoIdAndRegraId(agendamento.getId(), regra.getId())) {
+                        log.info("[DEBUG LEMBRETES] Disparando WhatsApp para agendamento ID {}", agendamento.getId());
                         enviarLembreteWhatsApp(agendamento, regra);
+                    } else {
+                        log.info("[DEBUG LEMBRETES] Agendamento ID {} já recebeu este lembrete (Anti-spam ativado).", agendamento.getId());
                     }
                 }
             }
