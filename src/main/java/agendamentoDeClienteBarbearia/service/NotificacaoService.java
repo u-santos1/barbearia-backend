@@ -67,7 +67,7 @@ public class NotificacaoService {
 
     @Async
     public void notificarBarbeiro(Barbeiro barbeiro, Agendamento agendamento) {
-        if (barbeiro.getTokenPushNotification() == null || barbeiro.getTokenPushNotification().isBlank()) {
+        if (barbeiro == null || barbeiro.getId() == null) {
             return;
         }
 
@@ -81,7 +81,8 @@ public class NotificacaoService {
 
             Map<String, Object> payload = new HashMap<>();
             payload.put("app_id", oneSignalAppId);
-            payload.put("include_player_ids", List.of(barbeiro.getTokenPushNotification()));
+            payload.put("target_channel", "push");
+            payload.put("include_aliases", Map.of("external_id", List.of(barbeiro.getId().toString())));
             payload.put("headings", Map.of("en", titulo));
             payload.put("contents", Map.of("en", mensagem));
             payload.put("data", Map.of("tipo", "NOVO_AGENDAMENTO", "agendamentoId", agendamento.getId()));
