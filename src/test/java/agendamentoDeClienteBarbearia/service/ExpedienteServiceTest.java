@@ -59,6 +59,8 @@ public class ExpedienteServiceTest {
                 DayOfWeek.MONDAY,
                 LocalTime.of(9,0),
                 LocalTime.of(18, 0),
+                LocalTime.of(12, 0),
+                LocalTime.of(13, 0),
                 true
         );
 
