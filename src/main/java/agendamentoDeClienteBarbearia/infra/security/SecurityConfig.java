@@ -27,7 +27,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-
     private final SecurityFilter securityFilter;
 
     @Value("${api.cors.allowed-origins:*}")
@@ -54,7 +53,8 @@ public class SecurityConfig {
                     // 3. FLUXO DO CLIENTE E ROTAS PÚBLICAS
                     req.requestMatchers(HttpMethod.POST, "/clientes", "/agendamentos").permitAll();
 
-                    // --- CORREÇÃO AQUI: Protege as rotas específicas do barbeiro logado PRIMEIRO ---
+                    // --- CORREÇÃO AQUI: Protege as rotas específicas do barbeiro logado PRIMEIRO
+                    // ---
                     req.requestMatchers(HttpMethod.GET, "/barbeiros/me").authenticated();
                     req.requestMatchers(HttpMethod.PUT, "/barbeiros/meus-dados").authenticated();
 
@@ -98,18 +98,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-
-        configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:8081",
-                "http://localhost:63342",
-                "http://127.0.0.1:5500/",
-                "https://barbearia-frontend-rose.vercel.app",
-                "https://barbearia-frontend-git-main-u-santos1s-projects.vercel.app",
-                "https://barbearia-frontend-7vnnqr379-u-santos1s-projects.vercel.app",
-                "https://*-u-santos1s-projects.vercel.app", // O curinga (*) aceita qualquer preview
-                "http://localhost:3000",
-                "https://barbearia-frontend-pjsh.vercel.app"
-        ));
+        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
 
         // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
