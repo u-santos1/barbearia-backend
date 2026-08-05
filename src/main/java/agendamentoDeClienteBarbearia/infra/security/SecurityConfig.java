@@ -98,6 +98,15 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
+        configuration.setAllowedOriginPatterns(List.of(
+                "https://kliper-front-end.vercel.app",
+                "https://barbearia-frontend-rose.vercel.app",
+                "https://barbearia-frontend-git-main-u-santos1s-projects.vercel.app",
+                "https://barbearia-frontend-7vnnqr379-u-santos1s-projects.vercel.app",
+                "https://*-u-santos1s-projects.vercel.app", 
+                "http://localhost:3000",
+                "https://barbearia-frontend-pjsh.vercel.app"));
+
         configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
 
         // Métodos permitidos
