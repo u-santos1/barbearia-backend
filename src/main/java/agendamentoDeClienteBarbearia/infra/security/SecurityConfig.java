@@ -105,9 +105,8 @@ public class SecurityConfig {
                 "https://barbearia-frontend-7vnnqr379-u-santos1s-projects.vercel.app",
                 "https://*-u-santos1s-projects.vercel.app", 
                 "http://localhost:3000",
-                "https://barbearia-frontend-pjsh.vercel.app"));
-
-        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
+                "https://barbearia-frontend-pjsh.vercel.app",
+                "https://kliper-front-end.vercel.app"));
 
         // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
