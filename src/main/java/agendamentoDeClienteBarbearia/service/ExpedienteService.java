@@ -33,7 +33,10 @@ public class ExpedienteService {
             expediente.setDiaSemana(d.diaSemana());
             expediente.setAbertura(d.abertura());
             expediente.setFechamento(d.fechamento());
+            expediente.setAlmocoInicio(d.almocoInicio());
+            expediente.setAlmocoFim(d.almocoFim());
             expediente.setTrabalha(d.trabalha());
+            expediente.setAtivo(true);
 
             repository.save(expediente);
         }

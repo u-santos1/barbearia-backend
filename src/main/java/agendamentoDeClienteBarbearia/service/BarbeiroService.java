@@ -280,4 +280,11 @@ public class BarbeiroService {
         return barbeiro;
 }
 
+    @Transactional
+    public void atualizarTokenPush(Long barbeiroId, String token) {
+        Barbeiro barbeiro = repository.findById(barbeiroId)
+                .orElseThrow(() -> new RegraDeNegocioException("Barbeiro não encontrado."));
+        barbeiro.setTokenPushNotification(token);
+    }
+
 }

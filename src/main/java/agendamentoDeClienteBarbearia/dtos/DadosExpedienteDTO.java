@@ -7,5 +7,7 @@ public record DadosExpedienteDTO(
         DayOfWeek diaSemana,
         LocalTime abertura,
         LocalTime fechamento,
+        LocalTime almocoInicio,
+        LocalTime almocoFim,
         boolean trabalha
 ) {}

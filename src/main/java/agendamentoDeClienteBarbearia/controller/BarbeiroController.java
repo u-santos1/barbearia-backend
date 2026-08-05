@@ -127,4 +127,12 @@ public class BarbeiroController {
 
         return ResponseEntity.ok(new DetalhamentoBarbeiroDTO(barbeiroAtualizado));
     }
+    @PatchMapping("/push-token")
+    public ResponseEntity<Void> atualizarTokenPush(
+            @RequestBody @Valid agendamentoDeClienteBarbearia.dtos.PushTokenDTO dados,
+            @AuthenticationPrincipal Barbeiro barbeiroLogado) {
+
+        service.atualizarTokenPush(barbeiroLogado.getId(), dados.token());
+        return ResponseEntity.noContent().build();
+    }
 }
